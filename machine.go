@@ -45,8 +45,8 @@ const (
 	CMD_SUB  uint16 = 0x02 // R,R - R,I
 	CMD_MUL  uint16 = 0x03 // R,R - R,I
 	CMD_DIV  uint16 = 0x04 // R,R - R,I
-	CMD_INC  uint16 = 0x05 // R,R - R,I
-	CMD_DEC  uint16 = 0x06 // R,R - R,I
+	CMD_INC  uint16 = 0x05 // R
+	CMD_DEC  uint16 = 0x06 // R
 	CMD_AND  uint16 = 0x07 // R,R - R,I
 	CMD_OR   uint16 = 0x08 // R,R - R,I
 	CMD_XOR  uint16 = 0x09 // R,R - R,I
@@ -58,9 +58,13 @@ const (
 	CMD_POP  uint16 = 0x0F // R
 	CMD_CMP  uint16 = 0x10 // R,R - R,I
 	CMD_CNT  uint16 = 0x11 // R,R - R,I
+	CMD_LGE  uint16 = 0x17
+	CMD_SME  uint16 = 0x18
 	CMD_JIF  uint16 = 0x12 // R - I
 	CMD_JMP  uint16 = 0x13 // R - I
-	CMD_HLT  uint16 = 0x14
+	CMD_CLL  uint16 = 0x14
+	CMD_RET  uint16 = 0x15
+	CMD_HLT  uint16 = 0x16
 
 	IR_OVERFLOW_CODE  uint16 = 0x1
 	IR_OVERFLOW_STACK uint16 = 0x2
@@ -98,37 +102,194 @@ func throwInterrupt(value, kind uint16) {
 	executeActive()
 }
 
-func loadNextCommand() uint16 {
-	value := load(CODE_POINTER)
-	if value > MAX_MEMORY-1 {
-		throwInterrupt(IR_OVERFLOW_CODE, IR_OVERFLOW)
+func pushOnStack(value uint16) {
+	stack := load(STACK_POINTER)
+	if stack >= STACK_MAX-1 {
+		throwInterrupt(IR_OVERFLOW_STACK, IR_OVERFLOW)
 		return
 	}
-	store(CODE_POINTER, value+2)
+	store(stack+2, value)
+	store(STACK_POINTER, stack+2)
+}
+
+func popFromStack() uint16 {
+	stack := load(STACK_POINTER)
+	value := load(stack)
+	store(stack, 0)
+	if stack > STACK_BASE {
+		store(STACK_POINTER, stack-2)
+	}
+	return value
+}
+
+func loadNextCommand() uint16 {
+	code := load(CODE_POINTER)
+	if code >= MAX_MEMORY-1 {
+		throwInterrupt(IR_OVERFLOW_CODE, IR_OVERFLOW)
+		return CMD_HLT
+	}
+	store(CODE_POINTER, code+2)
 	return load(CODE_POINTER)
 }
 
+func RunMinArithmetic(base func(uint16) uint16, carry func(int) int) {
+	var value1, result, zeroFlag, carryFlag uint16
+	value1 = load(ActiveArgs[0])
+	result = base(value1)
+	carryResult := carry(int(value1))
+	zeroFlag = 0
+	if result == 0 {
+		zeroFlag = 1
+	}
+	store(ZERO_FLAG, zeroFlag)
+	carryFlag = 0
+	if int(result) != carryResult {
+		carryFlag = 1
+	}
+	store(CARRY_FLAG, carryFlag)
+	store(ActiveArgs[0], result)
+}
+
+func RunMinLogic(base func(uint16) uint16) {
+	var value1, zeroFlag, result uint16
+	value1 = load(ActiveArgs[0])
+	result = base(value1)
+	zeroFlag = 0
+	if result == 0 {
+		zeroFlag = 1
+	}
+	store(ZERO_FLAG, zeroFlag)
+	store(CARRY_FLAG, 0)
+	store(ActiveArgs[0], result)
+}
+func RunLogic(base func(uint16, uint16) uint16) {
+	var value1, value2, zeroFlag, result uint16
+	value1 = load(ActiveArgs[0])
+	if value2 = ActiveArgs[1]; ActiveFlag != FLAG_RR {
+		value2 = load(ActiveArgs[1])
+	}
+	result = base(value1, value2)
+	zeroFlag = 0
+	if result == 0 {
+		zeroFlag = 1
+	}
+	store(ZERO_FLAG, zeroFlag)
+	store(CARRY_FLAG, 0)
+	store(ActiveArgs[0], result)
+}
+
+func RunArithmetic(base func(uint16, uint16) uint16, carry func(int, int) int) {
+	var value1, value2, result, zeroFlag, carryFlag uint16
+	value1 = load(ActiveArgs[0])
+	if value2 = ActiveArgs[1]; ActiveFlag != FLAG_RR {
+		value2 = load(ActiveArgs[1])
+	}
+	result = base(value1, value2)
+	carryResult := carry(int(value1), int(value2))
+	zeroFlag = 0
+	if result == 0 {
+		zeroFlag = 1
+	}
+	store(ZERO_FLAG, zeroFlag)
+	carryFlag = 0
+	if int(result) != carryResult {
+		carryFlag = 1
+	}
+	store(CARRY_FLAG, carryFlag)
+	store(ActiveArgs[0], result)
+}
+
+func Btouint(b bool) uint16 {
+	if b {
+		return 1
+	}
+	return 0
+}
 func executeActive() {
-	switch cmd {
+	switch ActiveCommand {
 	case CMD_ADD:
+		RunArithmetic(func(a, b uint16) uint16 { return a + b }, func(a, b int) int { return a + b })
 	case CMD_SUB:
+		RunArithmetic(func(a, b uint16) uint16 { return a - b }, func(a, b int) int { return a - b })
 	case CMD_MUL:
+		RunArithmetic(func(a, b uint16) uint16 { return a * b }, func(a, b int) int { return a * b })
 	case CMD_DIV:
+		RunArithmetic(func(a, b uint16) uint16 { return a / b }, func(a, b int) int { return a / b })
 	case CMD_INC:
+		RunMinArithmetic(func(a uint16) uint16 { return a + 1 }, func(a int) int { return a + 1 })
 	case CMD_DEC:
+		RunMinArithmetic(func(a uint16) uint16 { return a - 1 }, func(a int) int { return a - 1 })
 	case CMD_AND:
+		RunLogic(func(a, b uint16) uint16 { return a & b })
 	case CMD_OR:
+		RunLogic(func(a, b uint16) uint16 { return a | b })
 	case CMD_XOR:
+		RunLogic(func(a, b uint16) uint16 { return a ^ b })
 	case CMD_NOT:
+		RunMinLogic(func(a uint16) uint16 { return a &^ 0xFFFF })
 	case CMD_SHL:
+		RunLogic(func(a, b uint16) uint16 { return a << b })
 	case CMD_SHR:
+		RunLogic(func(a, b uint16) uint16 { return a >> b })
 	case CMD_MOV:
+		var value uint16
+		switch ActiveFlag {
+		case FLAG_RR, FLAG_RA, FLAG_AA, FLAG_AR:
+			value = load(ActiveArgs[0])
+		case FLAG_IA, FLAG_IR:
+			value = ActiveArgs[0]
+		}
+		store(ActiveArgs[1], value)
 	case CMD_PUSH:
+		var value uint16
+		switch ActiveFlag {
+		case FLAG_I:
+			value = ActiveArgs[0]
+		case FLAG_R:
+			value = ActiveArgs[1]
+		}
+		pushOnStack(value)
 	case CMD_POP:
+		value := popFromStack()
+		store(ActiveArgs[0], value)
 	case CMD_CMP:
+		RunLogic(func(a, b uint16) uint16 { return Btouint(a == b) })
 	case CMD_CNT:
+		RunLogic(func(a, b uint16) uint16 { return Btouint(a != b) })
+	case CMD_LGE:
+		RunLogic(func(a, b uint16) uint16 { return Btouint(a >= b) })
+	case CMD_SME:
+		RunLogic(func(a, b uint16) uint16 { return Btouint(a <= b) })
 	case CMD_JIF:
+		var value uint16
+		if ActiveFlag != FLAG_I {
+			value = load(ActiveArgs[0])
+		} else {
+			value = ActiveArgs[0]
+		}
+		if load(ZERO_FLAG) == 1 {
+			store(CODE_POINTER, value)
+		}
 	case CMD_JMP:
+		var value uint16
+		if ActiveFlag != FLAG_I {
+			value = load(ActiveArgs[0])
+		} else {
+			value = ActiveArgs[0]
+		}
+		store(CODE_POINTER, value)
+	case CMD_CLL:
+		var value uint16
+		if ActiveFlag != FLAG_I {
+			value = load(ActiveArgs[0])
+		} else {
+			value = ActiveArgs[0]
+		}
+		pushOnStack(value)
+		store(CODE_POINTER, value)
+	case CMD_RET:
+		value := popFromStack()
+		store(CODE_POINTER, value)
 	case CMD_HLT:
 		ShutDown = true
 	}
