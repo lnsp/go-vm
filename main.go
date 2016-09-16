@@ -37,5 +37,6 @@ func main() {
 		fmt.Errorf("%v\n", err)
 		return
 	}
-	Boot(bytecode)
+	machine := NewMachine()
+	machine.Boot(bytecode)
 }
