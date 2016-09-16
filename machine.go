@@ -6,6 +6,7 @@ import (
 )
 
 const (
+	MAX_CMD_ARGS  uint16 = 0x02
 	MAX_MEMORY    uint16 = 0xFFFF
 	CODE_POINTER  uint16 = 0x0000
 	STACK_POINTER uint16 = 0x0002
@@ -28,14 +29,18 @@ const (
 	CODE_BASE     uint16 = 0x2000
 
 	FLAG_MASK uint16 = 0xFF00
-	FLAG_RR   uint16 = 0x8000
-	FLAG_RI   uint16 = 0x4000
-	FLAG_RA   uint16 = 0x2000
-	FLAG_AA   uint16 = 0x1000
-	FLAG_AR   uint16 = 0x800
-	FLAG_IA   uint16 = 0x400
-	FLAG_IR   uint16 = 0x200
+	FLAG_RR   uint16 = 0x0100
+	FLAG_RI   uint16 = 0x0200
+	FLAG_RA   uint16 = 0x0300
+	FLAG_AA   uint16 = 0x0400
+	FLAG_AR   uint16 = 0x0500
+	FLAG_IA   uint16 = 0x0600
+	FLAG_IR   uint16 = 0x0700
+	FLAG_I    uint16 = 0x0800
+	FLAG_R    uint16 = 0x0900
+	FLAG_NONE uint16 = 0x0000
 
+	CMD_MASK uint16 = 0x00FF
 	CMD_ADD  uint16 = 0x01 // R,R - R,I
 	CMD_SUB  uint16 = 0x02 // R,R - R,I
 	CMD_MUL  uint16 = 0x03 // R,R - R,I
@@ -56,6 +61,9 @@ const (
 	CMD_JIF  uint16 = 0x12 // R - I
 	CMD_JMP  uint16 = 0x13 // R - I
 	CMD_HLT  uint16 = 0x14
+
+	IR_OVERFLOW_CODE  uint16 = 0x1
+	IR_OVERFLOW_STACK uint16 = 0x2
 )
 
 var (
@@ -69,8 +77,13 @@ var (
 		0xF0F, // Fuchsia
 		0x0FF, // Aqua
 	}
-	ByteOrder = binary.BigEndian
-	Memory    []byte
+	ByteOrder     = binary.BigEndian
+	Memory        []byte
+	NextCommand   uint16
+	ActiveFlag    uint16
+	ActiveCommand uint16
+	ActiveArgs    [MAX_CMD_ARGS]uint16
+	ShutDown      bool
 )
 
 func Boot(code []byte) {
@@ -79,34 +92,62 @@ func Boot(code []byte) {
 	evaluate()
 }
 
+func throwInterrupt(value, kind uint16) {
+	store(INTERRUPT, value)
+	store(CODE_POINTER, load(kind))
+	executeActive()
+}
+
+func loadNextCommand() uint16 {
+	value := load(CODE_POINTER)
+	if value > MAX_MEMORY-1 {
+		throwInterrupt(IR_OVERFLOW_CODE, IR_OVERFLOW)
+		return
+	}
+	store(CODE_POINTER, value+2)
+	return load(CODE_POINTER)
+}
+
+func executeActive() {
+	switch cmd {
+	case CMD_ADD:
+	case CMD_SUB:
+	case CMD_MUL:
+	case CMD_DIV:
+	case CMD_INC:
+	case CMD_DEC:
+	case CMD_AND:
+	case CMD_OR:
+	case CMD_XOR:
+	case CMD_NOT:
+	case CMD_SHL:
+	case CMD_SHR:
+	case CMD_MOV:
+	case CMD_PUSH:
+	case CMD_POP:
+	case CMD_CMP:
+	case CMD_CNT:
+	case CMD_JIF:
+	case CMD_JMP:
+	case CMD_HLT:
+		ShutDown = true
+	}
+}
+
 func evaluate() {
-	cmd := load(CODE_POINTER)
-	for cmd != CMD_HALT {
-		iterations := 1
-		for i := 0; i < iterations; i++ {
-			switch cmd {
-			case CMD_ADD:
-			case CMD_SUB:
-			case CMD_MUL:
-			case CMD_DIV:
-			case CMD_INC:
-			case CMD_DEC:
-			case CMD_AND:
-			case CMD_OR:
-			case CMD_XOR:
-			case CMD_NOT:
-			case CMD_SHL:
-			case CMD_SHR:
-			case CMD_MOV:
-			case CMD_PUSH:
-			case CMD_POP:
-			case CMD_CMP:
-			case CMD_CNT:
-			case CMD_JIF:
-			case CMD_JMP:
-			case CMD_HLT:
-			}
+	NextCommand = loadNextCommand()
+	for !ShutDown {
+		ActiveFlag = NextCommand & FLAG_MASK
+		ActiveCommand = NextCommand & CMD_MASK
+		switch ActiveFlag {
+		case FLAG_RR, FLAG_RI, FLAG_RA, FLAG_AA, FLAG_AR, FLAG_IA, FLAG_IR:
+			ActiveArgs[0] = loadNextCommand()
+			ActiveArgs[1] = loadNextCommand()
+		case FLAG_I, FLAG_R:
+			ActiveArgs[0] = loadNextCommand()
 		}
+		executeActive()
+		NextCommand = loadNextCommand()
 	}
 }
 
