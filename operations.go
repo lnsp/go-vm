@@ -66,3 +66,39 @@ func (machine *Machine) PerformArithmetic(base func(uint16, uint16) uint16, carr
 	machine.store(CARRY_FLAG, carryFlag)
 	machine.store(machine.Args[0], result)
 }
+func (machine *Machine) PerformJump(jumpAlways bool) {
+	var value uint16
+	switch machine.Flag {
+	case FLAG_I:
+		value = machine.Args[0]
+	case FLAG_R:
+		value = machine.load(machine.Args[0])
+	}
+	if jumpAlways || machine.load(ZERO_FLAG) == 1 {
+		machine.store(CODE_POINTER, value)
+	}
+}
+func (machine *Machine) PerformMove() {
+	var value, target uint16
+	switch machine.Flag {
+	case FLAG_RA:
+		value = machine.load(machine.Args[0])
+		target = machine.load(machine.Args[1])
+	case FLAG_RR:
+		value = machine.load(machine.Args[0])
+		target = machine.Args[1]
+	case FLAG_AA:
+		value = machine.load(machine.load(machine.Args[0]))
+		target = machine.load(machine.Args[1])
+	case FLAG_AR:
+		value = machine.load(machine.load(machine.Args[0]))
+		target = machine.Args[1]
+	case FLAG_IA:
+		value = machine.Args[0]
+		target = machine.load(machine.Args[1])
+	case FLAG_IR:
+		value = machine.Args[0]
+		target = machine.Args[1]
+	}
+	machine.store(target, value)
+}
