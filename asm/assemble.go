@@ -2,7 +2,7 @@ package asm
 
 import (
 	"fmt"
-	"github.com/lnsp/gvm/vm"
+	"github.com/lnsp/govm/vm"
 	"regexp"
 	"strconv"
 	"strings"

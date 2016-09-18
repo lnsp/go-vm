@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/lnsp/gvm/asm"
-	"github.com/lnsp/gvm/vm"
+	"github.com/lnsp/govm/asm"
+	"github.com/lnsp/govm/vm"
 	"io/ioutil"
 
 	"github.com/lnsp/pkginfo"
