@@ -10,7 +10,7 @@ const (
 	REGISTER_AX   uint16 = 0x0008
 	REGISTER_BX   uint16 = 0x000A
 	REGISTER_CX   uint16 = 0x000C
-	REGISTER_DX   uint16 = 0x000D
+	REGISTER_DX   uint16 = 0x000E
 	INTERRUPT     uint16 = 0x0010
 	IR_STATE      uint16 = 0x0012
 	IR_KEYBOARD   uint16 = 0x0014
