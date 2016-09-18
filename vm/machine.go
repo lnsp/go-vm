@@ -152,7 +152,6 @@ func (machine *Machine) fetchWord() (uint16, error) {
 }
 
 func (machine *Machine) handle() error {
-	var value uint16
 	switch machine.Command {
 	case CMD_ADD:
 		machine.PerformArithmetic(func(a, b uint16) uint16 { return a + b }, func(a, b int) int { return a + b })
@@ -181,29 +180,9 @@ func (machine *Machine) handle() error {
 	case CMD_MOV:
 		machine.PerformMove()
 	case CMD_PUSH:
-		var err error
-		switch machine.Flag {
-		case FLAG_I:
-			value = machine.Args[0]
-		case FLAG_R:
-			value, err = machine.Load(machine.Args[0])
-			if err != nil {
-				return err
-			}
-		}
-		err = machine.push(value)
-		if err != nil {
-			return err
-		}
+		machine.PerformPush()
 	case CMD_POP:
-		value, err := machine.pop()
-		if err != nil {
-			return err
-		}
-		err = machine.Store(machine.Args[0], value)
-		if err != nil {
-			return err
-		}
+		machine.PerformPop()
 	case CMD_CMP:
 		machine.PerformLogic(func(a, b uint16) uint16 { return toUint16(a == b) })
 	case CMD_CNT:
@@ -217,39 +196,11 @@ func (machine *Machine) handle() error {
 	case CMD_JMP:
 		machine.PerformJump(true)
 	case CMD_CALL:
-		var err error
-		switch machine.Flag {
-		case FLAG_I:
-			value = machine.Args[0]
-		case FLAG_R:
-			value, err = machine.Load(machine.Args[0])
-			if err != nil {
-				return err
-			}
-		}
-		current, err := machine.Load(CODE_POINTER)
-		if err != nil {
-			return err
-		}
-		err = machine.push(current)
-		if err != nil {
-			return err
-		}
-		err = machine.Store(CODE_POINTER, value)
-		if err != nil {
-			return err
-		}
+		machine.PerformCall()
 	case CMD_RET:
-		value, err := machine.pop()
-		if err != nil {
-			return err
-		}
-		err = machine.Store(CODE_POINTER, value)
-		if err != nil {
-			return err
-		}
+		machine.PerformReturn()
 	case CMD_HLT:
-		machine.KeepRunning = false
+		machine.Halt()
 	}
 	return nil
 }

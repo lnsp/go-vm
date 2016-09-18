@@ -1,5 +1,74 @@
 package vm
 
+func (machine *Machine) Halt() {
+	machine.KeepRunning = false
+}
+func (machine *Machine) PerformPush() error {
+	var value uint16
+	var err error
+	switch machine.Flag {
+	case FLAG_I:
+		value = machine.Args[0]
+	case FLAG_R:
+		value, err = machine.Load(machine.Args[0])
+		if err != nil {
+			return err
+		}
+	}
+	err = machine.push(value)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (machine *Machine) PerformPop() error {
+	value, err := machine.pop()
+	if err != nil {
+		return err
+	}
+	err = machine.Store(machine.Args[0], value)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (machine *Machine) PerformCall() error {
+	var value uint16
+	var err error
+	switch machine.Flag {
+	case FLAG_I:
+		value = machine.Args[0]
+	case FLAG_R:
+		value, err = machine.Load(machine.Args[0])
+		if err != nil {
+			return err
+		}
+	}
+	current, err := machine.Load(CODE_POINTER)
+	if err != nil {
+		return err
+	}
+	err = machine.push(current)
+	if err != nil {
+		return err
+	}
+	err = machine.Store(CODE_POINTER, value)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (machine *Machine) PerformReturn() error {
+	value, err := machine.pop()
+	if err != nil {
+		return err
+	}
+	err = machine.Store(CODE_POINTER, value)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 func (machine *Machine) PerformSimpleArithmetic(base func(uint16) uint16, carry func(int) int) error {
 	var value1, result, zeroFlag, carryFlag uint16
 	value1, err := machine.Load(machine.Args[0])
