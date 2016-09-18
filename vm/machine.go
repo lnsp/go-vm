@@ -42,6 +42,7 @@ type Machine struct {
 	Cmd         uint16
 	Args        [MAX_CMD_ARGS]uint16
 	KeepRunning bool
+	Debug       bool
 }
 
 func NewMachine() *Machine {
@@ -54,6 +55,10 @@ func (machine *Machine) Boot(code []byte) {
 	machine.initialize()
 	machine.program(code)
 	machine.run()
+}
+
+func (machine *Machine) EnableDebug(debug bool) {
+	machine.Debug = debug
 }
 
 func (machine *Machine) interrupt(value, kind uint16) {
@@ -170,9 +175,15 @@ func (machine *Machine) parseState() {
 		machine.Args[i] = machine.fetchCmd()
 	}
 
+	if machine.Debug {
+		fmt.Printf("%4.4X %X\n", machine.NextCmd, machine.Args)
+	}
 }
 
 func (machine *Machine) iterate() {
+	if machine.Debug {
+		fmt.Printf("%4.4X: ", machine.load(CODE_POINTER))
+	}
 	machine.NextCmd = machine.fetchCmd()
 }
 
