@@ -142,7 +142,11 @@ func Assemble(code string) []byte {
 }
 
 func ParseCommand(args []string, line int) ([]uint16, []PointerReference) {
-	cmdMap := CommandMap[args[0]]
+	cmdMap, ok := CommandMap[args[0]]
+	if !ok {
+		fmt.Errorf("ERROR: Unknown command %s\n", args[0])
+		return []uint16{}, []PointerReference{}
+	}
 	cmd := []uint16{cmdMap}
 	flag := vm.FLAG_NONE
 	pointers := make([]PointerReference, 0)
