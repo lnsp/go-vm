@@ -44,7 +44,7 @@ func main() {
 		bytecode = asm.Assemble(string(bytecode))
 	}
 
-	machine := vm.NewMachine()
+	machine := vm.New()
 	machine.Boot(bytecode)
 	fmt.Println(machine)
 }

@@ -1,6 +1,7 @@
 package vm
 
 const (
+	WORD_SIZE     uint16 = 2
 	MAX_CMD_ARGS  uint16 = 0x02
 	MAX_MEMORY    uint16 = 0xFFFF
 	CODE_POINTER  uint16 = 0x0000

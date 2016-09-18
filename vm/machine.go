@@ -2,6 +2,7 @@ package vm
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 )
 
@@ -35,71 +36,124 @@ var (
 )
 
 type Machine struct {
-	ByteOrder   binary.ByteOrder
-	Memory      []byte
-	NextCmd     uint16
+	Memory
+	Next        uint16
 	Flag        uint16
-	Cmd         uint16
+	Command     uint16
 	Args        [MAX_CMD_ARGS]uint16
 	KeepRunning bool
 	Debug       bool
 }
 
-func NewMachine() *Machine {
+func New() *Machine {
 	return &Machine{
-		ByteOrder: ByteOrder,
+		Memory: NewMemory(int(MAX_MEMORY) + 1),
 	}
-}
-
-func (machine *Machine) Boot(code []byte) {
-	machine.initialize()
-	machine.program(code)
-	machine.run()
 }
 
 func (machine *Machine) EnableDebug(debug bool) {
 	machine.Debug = debug
 }
 
-func (machine *Machine) interrupt(value, kind uint16) {
-	machine.store(INTERRUPT, value)
-	machine.store(CODE_POINTER, machine.load(kind))
-	machine.run()
+func (machine *Machine) Boot(code []byte) error {
+	err := machine.initialize()
+	if err != nil {
+		return err
+	}
+	err = machine.program(code)
+	if err != nil {
+		return err
+	}
+	err = machine.run()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (machine *Machine) push(value uint16) {
-	stack := machine.load(STACK_POINTER)
-	if stack >= STACK_MAX-1 {
+func (machine *Machine) interrupt(code, reason uint16) error {
+	err := machine.Store(INTERRUPT, code)
+	if err != nil {
+		return err
+	}
+	pointer, err := machine.Load(reason)
+	if err != nil {
+		return err
+	}
+	err = machine.Store(CODE_POINTER, pointer)
+	if err != nil {
+		return err
+	}
+	err = machine.run()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (machine *Machine) push(value uint16) error {
+	stackItem, err := machine.Load(STACK_POINTER)
+	if err != nil {
+		return err
+	}
+	if stackItem > STACK_MAX-WORD_SIZE {
 		machine.interrupt(IR_OVERFLOW_STACK, IR_OVERFLOW)
-		return
+		return errors.New("stack overflow")
 	}
-	machine.store(stack+2, value)
-	machine.store(STACK_POINTER, stack+2)
+	nextItem := stackItem + WORD_SIZE
+	err = machine.Store(nextItem, value)
+	if err != nil {
+		return err
+	}
+	machine.Store(STACK_POINTER, nextItem)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (machine *Machine) pop() uint16 {
-	stack := machine.load(STACK_POINTER)
-	value := machine.load(stack)
-	machine.store(stack, 0)
-	if stack > STACK_BASE {
-		machine.store(STACK_POINTER, stack-2)
+func (machine *Machine) pop() (uint16, error) {
+	pointer, err := machine.Load(STACK_POINTER)
+	if err != nil {
+		return 0, err
 	}
-	return value
+	value, err := machine.Load(pointer)
+	if err != nil {
+		return 0, err
+	}
+	err = machine.Store(pointer, 0)
+	if err != nil {
+		return 0, err
+	}
+	if pointer > STACK_BASE {
+		machine.Store(STACK_POINTER, pointer-WORD_SIZE)
+	}
+	return value, nil
 }
 
-func (machine *Machine) fetchCmd() uint16 {
-	code := machine.load(CODE_POINTER)
-	if code >= MAX_MEMORY-1 {
+func (machine *Machine) fetchWord() (uint16, error) {
+	pointer, err := machine.Load(CODE_POINTER)
+	if err != nil {
+		return 0, err
+	}
+	if pointer > MAX_MEMORY-WORD_SIZE {
 		machine.interrupt(IR_OVERFLOW_CODE, IR_OVERFLOW)
-		return CMD_HLT
+		return 0, errors.New("out of memory")
 	}
-	machine.store(CODE_POINTER, code+2)
-	return machine.load(code)
+	err = machine.Store(CODE_POINTER, pointer+WORD_SIZE)
+	if err != nil {
+		return 0, err
+	}
+	word, err := machine.Load(pointer)
+	if err != nil {
+		return 0, err
+	}
+	return word, nil
 }
 
-func (machine *Machine) handle() {
+func (machine *Machine) handle() error {
 	var value uint16
-	switch machine.Cmd {
+	switch machine.Command {
 	case CMD_ADD:
 		machine.PerformArithmetic(func(a, b uint16) uint16 { return a + b }, func(a, b int) int { return a + b })
 	case CMD_SUB:
@@ -127,16 +181,29 @@ func (machine *Machine) handle() {
 	case CMD_MOV:
 		machine.PerformMove()
 	case CMD_PUSH:
+		var err error
 		switch machine.Flag {
 		case FLAG_I:
 			value = machine.Args[0]
 		case FLAG_R:
-			value = machine.load(machine.Args[0])
+			value, err = machine.Load(machine.Args[0])
+			if err != nil {
+				return err
+			}
 		}
-		machine.push(value)
+		err = machine.push(value)
+		if err != nil {
+			return err
+		}
 	case CMD_POP:
-		value = machine.pop()
-		machine.store(machine.Args[0], value)
+		value, err := machine.pop()
+		if err != nil {
+			return err
+		}
+		err = machine.Store(machine.Args[0], value)
+		if err != nil {
+			return err
+		}
 	case CMD_CMP:
 		machine.PerformLogic(func(a, b uint16) uint16 { return toUint16(a == b) })
 	case CMD_CNT:
@@ -150,86 +217,147 @@ func (machine *Machine) handle() {
 	case CMD_JMP:
 		machine.PerformJump(true)
 	case CMD_CALL:
+		var err error
 		switch machine.Flag {
 		case FLAG_I:
 			value = machine.Args[0]
 		case FLAG_R:
-			value = machine.load(machine.Args[0])
+			value, err = machine.Load(machine.Args[0])
+			if err != nil {
+				return err
+			}
 		}
-		machine.push(machine.load(CODE_POINTER))
-		machine.store(CODE_POINTER, value)
+		current, err := machine.Load(CODE_POINTER)
+		if err != nil {
+			return err
+		}
+		err = machine.push(current)
+		if err != nil {
+			return err
+		}
+		err = machine.Store(CODE_POINTER, value)
+		if err != nil {
+			return err
+		}
 	case CMD_RET:
-		value = machine.pop()
-		machine.store(CODE_POINTER, value)
+		value, err := machine.pop()
+		if err != nil {
+			return err
+		}
+		err = machine.Store(CODE_POINTER, value)
+		if err != nil {
+			return err
+		}
 	case CMD_HLT:
 		machine.KeepRunning = false
 	}
+	return nil
 }
 
-func (machine *Machine) parseState() {
-	machine.Flag = machine.NextCmd & FLAG_MASK
-	machine.Cmd = machine.NextCmd & CMD_MASK
+func (machine *Machine) parseState() error {
+	machine.Flag = machine.Next & FLAG_MASK
+	machine.Command = machine.Next & CMD_MASK
 
+	var err error
 	maxFlags := FlagSize[machine.Flag]
 	for i := 0; i < maxFlags; i++ {
-		machine.Args[i] = machine.fetchCmd()
+		machine.Args[i], err = machine.fetchWord()
+		if err != nil {
+			return err
+		}
 	}
 
 	if machine.Debug {
-		fmt.Printf("%4.4X %X\n", machine.NextCmd, machine.Args)
+		fmt.Printf("%4.4X %X\n", machine.Next, machine.Args)
 	}
+
+	return nil
 }
 
-func (machine *Machine) iterate() {
+func (machine *Machine) iterate() error {
+	var err error
 	if machine.Debug {
-		fmt.Printf("%4.4X: ", machine.load(CODE_POINTER))
+		pointer, err := machine.Load(CODE_POINTER)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%4.4X: ", pointer)
 	}
-	machine.NextCmd = machine.fetchCmd()
+
+	machine.Next, err = machine.fetchWord()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (machine *Machine) run() {
-	machine.iterate()
+func (machine *Machine) run() error {
+	err := machine.iterate()
+	if err != nil {
+		return err
+	}
+
 	for machine.KeepRunning {
 		machine.parseState()
-		machine.handle()
-		machine.iterate()
+		err = machine.handle()
+		if err != nil {
+			return err
+		}
+		err = machine.iterate()
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func (machine *Machine) program(code []byte) {
+func (machine *Machine) program(code []byte) error {
 	size := len(code)
 
 	for i := 0; i < size; i++ {
-		machine.Memory[int(CODE_BASE)+i] = code[i]
+		err := machine.StoreByte(CODE_BASE+uint16(i), code[i])
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func (machine *Machine) initialize() {
-	machine.Memory = make([]byte, int(MAX_MEMORY)+1)
-
+func (machine *Machine) initialize() error {
 	// Load base values
-	machine.store(CODE_POINTER, CODE_BASE)
-	machine.store(STACK_POINTER, STACK_BASE)
-	machine.store(CODE_BASE, CMD_HLT)
-	machine.store(INTERRUPT, MAX_MEMORY-1)
+	err := machine.Store(CODE_POINTER, CODE_BASE)
+	if err != nil {
+		return err
+	}
+	err = machine.Store(STACK_POINTER, STACK_BASE)
+	if err != nil {
+		return err
+	}
+	err = machine.Store(CODE_BASE, CMD_HLT)
+	if err != nil {
+		return err
+	}
+	err = machine.Store(INTERRUPT, MAX_MEMORY)
+	if err != nil {
+		return err
+	}
 
-	// Init graphics
-	machine.store(OUT_MODE, OUT_MODE_TERM)
+	// create graphics
+	err = machine.Store(OUT_MODE, OUT_MODE_TERM)
+	if err != nil {
+		return err
+	}
 	pointer := OUT_COLORS
 	for _, color := range BaseColors {
-		machine.store(pointer, color)
+		err = machine.Store(pointer, color)
+		if err != nil {
+			return err
+		}
 		pointer += 2
 	}
 
 	machine.KeepRunning = true
-}
-
-func (machine *Machine) load(addr uint16) uint16 {
-	return machine.ByteOrder.Uint16(machine.Memory[addr : addr+2])
-}
-
-func (machine *Machine) store(addr, value uint16) {
-	machine.ByteOrder.PutUint16(machine.Memory[addr:addr+2], value)
+	return nil
 }
 
 func (machine Machine) String() string {
@@ -237,13 +365,18 @@ func (machine Machine) String() string {
 }
 
 func (machine *Machine) dumpSegment(seg int) string {
-	start := seg * 256
+	start := uint16(seg * 256)
 	dump := fmt.Sprintf("SEGMENT %4.4X - %4.4X\n-------------------", start, start+0xFF)
-	for i := start; i <= start+0xFF; i++ {
+	for i := start; i <= start+0xFF; i += WORD_SIZE {
 		if i%16 == 0 {
 			dump += "\n"
 		}
-		dump += fmt.Sprintf("%-3.2X", machine.Memory[i])
+		word, err := machine.Load(i)
+		if err != nil {
+			dump += "err"
+			return dump
+		}
+		dump += fmt.Sprintf("%-5.4X", word)
 	}
 	return dump
 }

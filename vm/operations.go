@@ -1,56 +1,107 @@
 package vm
 
-func (machine *Machine) PerformSimpleArithmetic(base func(uint16) uint16, carry func(int) int) {
+func (machine *Machine) PerformSimpleArithmetic(base func(uint16) uint16, carry func(int) int) error {
 	var value1, result, zeroFlag, carryFlag uint16
-	value1 = machine.load(machine.Args[0])
+	value1, err := machine.Load(machine.Args[0])
+	if err != nil {
+		return err
+	}
 	result = base(value1)
 	carryResult := carry(int(value1))
 	zeroFlag = 0
 	if result == 0 {
 		zeroFlag = 1
 	}
-	machine.store(ZERO_FLAG, zeroFlag)
+	err = machine.Store(ZERO_FLAG, zeroFlag)
+	if err != nil {
+		return err
+	}
 	carryFlag = 0
 	if int(result) != carryResult {
 		carryFlag = 1
 	}
-	machine.store(CARRY_FLAG, carryFlag)
-	machine.store(machine.Args[0], result)
+	err = machine.Store(CARRY_FLAG, carryFlag)
+	if err != nil {
+		return err
+	}
+	err = machine.Store(machine.Args[0], result)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (machine *Machine) PerformSimpleLogic(base func(uint16) uint16) {
+func (machine *Machine) PerformSimpleLogic(base func(uint16) uint16) error {
 	var value1, zeroFlag, result uint16
-	value1 = machine.load(machine.Args[0])
+	value1, err := machine.Load(machine.Args[0])
+	if err != nil {
+		return err
+	}
 	result = base(value1)
 	zeroFlag = 0
 	if result == 0 {
 		zeroFlag = 1
 	}
-	machine.store(ZERO_FLAG, zeroFlag)
-	machine.store(CARRY_FLAG, 0)
-	machine.store(machine.Args[0], result)
+
+	err = machine.Store(ZERO_FLAG, zeroFlag)
+	if err != nil {
+		return err
+	}
+	err = machine.Store(CARRY_FLAG, 0)
+	if err != nil {
+		return err
+	}
+	err = machine.Store(machine.Args[0], result)
+	if err != nil {
+		return err
+	}
+	return nil
 }
-func (machine *Machine) PerformLogic(base func(uint16, uint16) uint16) {
+
+func (machine *Machine) PerformLogic(base func(uint16, uint16) uint16) error {
 	var value1, value2, zeroFlag, result uint16
-	value1 = machine.load(machine.Args[0])
+	value1, err := machine.Load(machine.Args[0])
+	if err != nil {
+		return err
+	}
 	if value2 = machine.Args[1]; machine.Flag == FLAG_RR {
-		value2 = machine.load(machine.Args[1])
+		value2, err = machine.Load(machine.Args[1])
+		if err != nil {
+			return err
+		}
 	}
 	result = base(value1, value2)
 	zeroFlag = 0
 	if result == 0 {
 		zeroFlag = 1
 	}
-	machine.store(ZERO_FLAG, zeroFlag)
-	machine.store(CARRY_FLAG, 0)
-	machine.store(machine.Args[0], result)
+	err = machine.Store(ZERO_FLAG, zeroFlag)
+	if err != nil {
+		return err
+	}
+	err = machine.Store(CARRY_FLAG, 0)
+	if err != nil {
+		return err
+	}
+	err = machine.Store(machine.Args[0], result)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (machine *Machine) PerformArithmetic(base func(uint16, uint16) uint16, carry func(int, int) int) {
+func (machine *Machine) PerformArithmetic(base func(uint16, uint16) uint16, carry func(int, int) int) error {
 	var value1, value2, result, zeroFlag, carryFlag uint16
-	value1 = machine.load(machine.Args[0])
+	value1, err := machine.Load(machine.Args[0])
+	if err != nil {
+		return err
+	}
 	if value2 = machine.Args[1]; machine.Flag == FLAG_RR {
-		value2 = machine.load(machine.Args[1])
+		value2, err = machine.Load(machine.Args[1])
+		if err != nil {
+			return err
+		}
 	}
 	result = base(value1, value2)
 	carryResult := carry(int(value1), int(value2))
@@ -58,47 +109,106 @@ func (machine *Machine) PerformArithmetic(base func(uint16, uint16) uint16, carr
 	if result == 0 {
 		zeroFlag = 1
 	}
-	machine.store(ZERO_FLAG, zeroFlag)
+	err = machine.Store(ZERO_FLAG, zeroFlag)
+	if err != nil {
+		return err
+	}
 	carryFlag = 0
 	if int(result) != carryResult {
 		carryFlag = 1
 	}
-	machine.store(CARRY_FLAG, carryFlag)
-	machine.store(machine.Args[0], result)
+	err = machine.Store(CARRY_FLAG, carryFlag)
+	if err != nil {
+		return err
+	}
+	err = machine.Store(machine.Args[0], result)
+	if err != nil {
+		return err
+	}
+	return nil
 }
-func (machine *Machine) PerformJump(jumpAlways bool) {
+func (machine *Machine) PerformJump(jumpAlways bool) error {
 	var value uint16
+	var err error
 	switch machine.Flag {
 	case FLAG_I:
 		value = machine.Args[0]
 	case FLAG_R:
-		value = machine.load(machine.Args[0])
+		value, err = machine.Load(machine.Args[0])
+		if err != nil {
+			return err
+		}
 	}
-	if jumpAlways || machine.load(ZERO_FLAG) == 1 {
-		machine.store(CODE_POINTER, value)
+	zeroFlag, err := machine.Load(ZERO_FLAG)
+	if err != nil {
+		return err
 	}
+	if jumpAlways || zeroFlag == 1 {
+		err = machine.Store(CODE_POINTER, value)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
-func (machine *Machine) PerformMove() {
+func (machine *Machine) PerformMove() error {
 	var value, target uint16
+	var err error
 	switch machine.Flag {
 	case FLAG_RA:
-		value = machine.load(machine.Args[0])
-		target = machine.load(machine.Args[1])
+		value, err = machine.Load(machine.Args[0])
+		if err != nil {
+			return err
+		}
+		target, err = machine.Load(machine.Args[1])
+		if err != nil {
+			return err
+		}
 	case FLAG_RR:
-		value = machine.load(machine.Args[0])
+		value, err = machine.Load(machine.Args[0])
+		if err != nil {
+			return err
+		}
 		target = machine.Args[1]
+		if err != nil {
+			return err
+		}
 	case FLAG_AA:
-		value = machine.load(machine.load(machine.Args[0]))
-		target = machine.load(machine.Args[1])
+		pointer, err := machine.Load(machine.Args[0])
+		if err != nil {
+			return err
+		}
+		value, err = machine.Load(pointer)
+		if err != nil {
+			return err
+		}
+		target, err = machine.Load(machine.Args[1])
+		if err != nil {
+			return err
+		}
 	case FLAG_AR:
-		value = machine.load(machine.load(machine.Args[0]))
+		pointer, err := machine.Load(machine.Args[0])
+		if err != nil {
+			return err
+		}
+		value, err = machine.Load(pointer)
+		if err != nil {
+			return err
+		}
 		target = machine.Args[1]
 	case FLAG_IA:
 		value = machine.Args[0]
-		target = machine.load(machine.Args[1])
+		target, err = machine.Load(machine.Args[1])
+		if err != nil {
+			return err
+		}
 	case FLAG_IR:
 		value = machine.Args[0]
 		target = machine.Args[1]
 	}
-	machine.store(target, value)
+	err = machine.Store(target, value)
+	if err != nil {
+		return err
+	}
+	return nil
 }
