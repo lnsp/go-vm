@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/lnsp/gvm/asm"
+	"github.com/lnsp/gvm/vm"
 	"io/ioutil"
 
 	"github.com/lnsp/pkginfo"
@@ -39,7 +41,7 @@ func main() {
 		return
 	}
 	if *AssembleFlag {
-		bytecode = Assemble(string(bytecode))
+		bytecode = asm.Assemble(string(bytecode))
 		fmt.Print("Assembled Bytecode")
 		for i, b := range bytecode {
 			if i%6 == 0 {
@@ -50,7 +52,7 @@ func main() {
 		fmt.Println()
 	}
 
-	machine := NewMachine()
+	machine := vm.NewMachine()
 	machine.Boot(bytecode)
 	fmt.Println(machine)
 }

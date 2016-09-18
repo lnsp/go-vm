@@ -1,4 +1,4 @@
-package main
+package vm
 
 const (
 	MAX_CMD_ARGS  uint16 = 0x02

@@ -1,4 +1,4 @@
-package main
+package vm
 
 func (machine *Machine) PerformSimpleArithmetic(base func(uint16) uint16, carry func(int) int) {
 	var value1, result, zeroFlag, carryFlag uint16

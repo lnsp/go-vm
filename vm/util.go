@@ -1,4 +1,4 @@
-package main
+package vm
 
 func toUint16(b bool) uint16 {
 	if b {

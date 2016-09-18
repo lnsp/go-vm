@@ -1,7 +1,8 @@
-package main
+package asm
 
 import (
 	"fmt"
+	"github.com/lnsp/gvm/vm"
 	"regexp"
 	"strconv"
 	"strings"
@@ -10,52 +11,52 @@ import (
 
 var (
 	CommandMap = map[string]uint16{
-		"ADD":  CMD_ADD,
-		"SUB":  CMD_SUB,
-		"MUL":  CMD_MUL,
-		"DIV":  CMD_DIV,
-		"INC":  CMD_INC,
-		"DEC":  CMD_DEC,
-		"AND":  CMD_AND,
-		"OR":   CMD_OR,
-		"XOR":  CMD_XOR,
-		"NOT":  CMD_NOT,
-		"SHL":  CMD_SHL,
-		"SHR":  CMD_SHR,
-		"MOV":  CMD_MOV,
-		"PUSH": CMD_PUSH,
-		"POP":  CMD_POP,
-		"CMP":  CMD_CMP,
-		"CNT":  CMD_CNT,
-		"LGE":  CMD_LGE,
-		"SME":  CMD_SME,
-		"JIF":  CMD_JIF,
-		"JMP":  CMD_JMP,
-		"CALL": CMD_CALL,
-		"RET":  CMD_RET,
-		"HLT":  CMD_HLT,
+		"ADD":  vm.CMD_ADD,
+		"SUB":  vm.CMD_SUB,
+		"MUL":  vm.CMD_MUL,
+		"DIV":  vm.CMD_DIV,
+		"INC":  vm.CMD_INC,
+		"DEC":  vm.CMD_DEC,
+		"AND":  vm.CMD_AND,
+		"OR":   vm.CMD_OR,
+		"XOR":  vm.CMD_XOR,
+		"NOT":  vm.CMD_NOT,
+		"SHL":  vm.CMD_SHL,
+		"SHR":  vm.CMD_SHR,
+		"MOV":  vm.CMD_MOV,
+		"PUSH": vm.CMD_PUSH,
+		"POP":  vm.CMD_POP,
+		"CMP":  vm.CMD_CMP,
+		"CNT":  vm.CMD_CNT,
+		"LGE":  vm.CMD_LGE,
+		"SME":  vm.CMD_SME,
+		"JIF":  vm.CMD_JIF,
+		"JMP":  vm.CMD_JMP,
+		"CALL": vm.CMD_CALL,
+		"RET":  vm.CMD_RET,
+		"HLT":  vm.CMD_HLT,
 	}
 	Registers = map[string]uint16{
-		"AX":  REGISTER_AX,
-		"BX":  REGISTER_BX,
-		"CX":  REGISTER_CX,
-		"DX":  REGISTER_DX,
-		"IR":  INTERRUPT,
-		"IRS": IR_STATE,
-		"IRK": IR_KEYBOARD,
-		"IRO": IR_OVERFLOW,
-		"SB":  STACK_BASE,
-		"CP":  CODE_POINTER,
-		"SP":  STACK_POINTER,
-		"ZF":  ZERO_FLAG,
-		"CF":  CARRY_FLAG,
+		"AX":  vm.REGISTER_AX,
+		"BX":  vm.REGISTER_BX,
+		"CX":  vm.REGISTER_CX,
+		"DX":  vm.REGISTER_DX,
+		"IR":  vm.INTERRUPT,
+		"IRS": vm.IR_STATE,
+		"IRK": vm.IR_KEYBOARD,
+		"IRO": vm.IR_OVERFLOW,
+		"SB":  vm.STACK_BASE,
+		"CP":  vm.CODE_POINTER,
+		"SP":  vm.STACK_POINTER,
+		"ZF":  vm.ZERO_FLAG,
+		"CF":  vm.CARRY_FLAG,
 	}
 	SystemPointers = map[string]uint16{
-		"SM":  STACK_MAX,
-		"OCH": OUT_CHARS,
-		"OCL": OUT_COLORS,
-		"CB":  CODE_BASE,
-		"OMD": OUT_MODE,
+		"SM":  vm.STACK_MAX,
+		"OCH": vm.OUT_CHARS,
+		"OCL": vm.OUT_COLORS,
+		"CB":  vm.CODE_BASE,
+		"OMD": vm.OUT_MODE,
 	}
 	PointerPattern, _ = regexp.Compile("[a-zA-Z]+")
 	NumberPattern, _  = regexp.Compile("((0x[0-9a-fA-F]+)|(0[0-7]+)|([0-9]+))")
@@ -114,7 +115,7 @@ func Assemble(code string) []byte {
 	fmt.Printf("mapped bytes %d\n", mappedBytes)
 
 	for name, ptr := range definedPointers {
-		definedPointers[name] = mappedBytes[ptr] + CODE_BASE
+		definedPointers[name] = mappedBytes[ptr] + vm.CODE_BASE
 		fmt.Printf("Mapping %s to %X\n", name, definedPointers[name])
 	}
 
@@ -127,7 +128,7 @@ func Assemble(code string) []byte {
 	for _, line := range lineBuffer {
 		data := make([]byte, len(line)*2)
 		for i, e := range line {
-			ByteOrder.PutUint16(data[i*2:i*2+2], e)
+			vm.ByteOrder.PutUint16(data[i*2:i*2+2], e)
 		}
 		fmt.Printf("Converted %X to %X\n", line, data)
 		output = append(output, data...)
@@ -138,7 +139,7 @@ func Assemble(code string) []byte {
 func ParseCommand(args []string, line int) ([]uint16, []PointerReference) {
 	cmdMap := CommandMap[args[0]]
 	cmd := []uint16{cmdMap}
-	flag := FLAG_NONE
+	flag := vm.FLAG_NONE
 	pointers := make([]PointerReference, 0)
 
 	fmt.Println("parsing ", args, cmdMap)
@@ -175,41 +176,41 @@ func ParseCommand(args []string, line int) ([]uint16, []PointerReference) {
 		fmt.Println(cmd)
 
 		switch flag {
-		case FLAG_NONE:
+		case vm.FLAG_NONE:
 			switch argType {
 			case "intermediate":
-				flag = FLAG_I
+				flag = vm.FLAG_I
 			case "register":
-				flag = FLAG_R
+				flag = vm.FLAG_R
 			case "address":
-				flag = FLAG_A
+				flag = vm.FLAG_A
 			}
-		case FLAG_I:
+		case vm.FLAG_I:
 			switch argType {
 			case "intermediate":
-				flag = FLAG_II
+				flag = vm.FLAG_II
 			case "register":
-				flag = FLAG_IR
+				flag = vm.FLAG_IR
 			case "address":
-				flag = FLAG_IA
+				flag = vm.FLAG_IA
 			}
-		case FLAG_R:
+		case vm.FLAG_R:
 			switch argType {
 			case "intermediate":
-				flag = FLAG_RI
+				flag = vm.FLAG_RI
 			case "register":
-				flag = FLAG_RR
+				flag = vm.FLAG_RR
 			case "address":
-				flag = FLAG_RA
+				flag = vm.FLAG_RA
 			}
-		case FLAG_A:
+		case vm.FLAG_A:
 			switch argType {
 			case "intermediate":
-				flag = FLAG_AI
+				flag = vm.FLAG_AI
 			case "register":
-				flag = FLAG_AR
+				flag = vm.FLAG_AR
 			case "address":
-				flag = FLAG_AA
+				flag = vm.FLAG_AA
 			}
 		}
 	}
