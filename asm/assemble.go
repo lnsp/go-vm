@@ -70,6 +70,7 @@ type PointerReference struct {
 func Assemble(code string) []byte {
 	var references []PointerReference
 	var lineBuffer [][]uint16
+	var lineDebug []string
 	definedPointers := make(map[string]uint16)
 	cleanLines := CleanCode(code)
 
@@ -83,7 +84,6 @@ func Assemble(code string) []byte {
 		// Handle marker
 		if strings.HasSuffix(active, ":") {
 			definedPointers[strings.TrimRight(active, ":")] = uint16(len(lineBuffer))
-			fmt.Println("push", active, "to defined pointers")
 			continue
 		}
 
@@ -102,8 +102,8 @@ func Assemble(code string) []byte {
 			result = data
 			references = append(references, refs...)
 		}
-		fmt.Printf("%s %X\n", cmd, result)
 		lineBuffer = append(lineBuffer, result)
+		lineDebug = append(lineDebug, active)
 	}
 
 	mappedBytes := make([]uint16, 0)
@@ -112,16 +112,21 @@ func Assemble(code string) []byte {
 		mappedBytes = append(mappedBytes, byteCount)
 		byteCount += uint16(len(line) * 2)
 	}
-	fmt.Printf("mapped bytes %d\n", mappedBytes)
 
 	for name, ptr := range definedPointers {
 		definedPointers[name] = mappedBytes[ptr] + vm.CODE_BASE
-		fmt.Printf("Mapping %s to %X\n", name, definedPointers[name])
 	}
 
 	for _, p := range references {
+		if _, ok := definedPointers[p.Name]; !ok {
+			fmt.Errorf("ERROR: Missing pointer %s\n", p.Name)
+			return []byte{}
+		}
 		lineBuffer[p.Line][p.Arg+1] = definedPointers[p.Name]
-		fmt.Println("replaced", p.Name)
+	}
+
+	for index, command := range lineDebug {
+		fmt.Printf("%4.4X %-24s %4.4X\n", mappedBytes[index]+vm.CODE_BASE, command, lineBuffer[index])
 	}
 
 	var output []byte
@@ -130,9 +135,9 @@ func Assemble(code string) []byte {
 		for i, e := range line {
 			vm.ByteOrder.PutUint16(data[i*2:i*2+2], e)
 		}
-		fmt.Printf("Converted %X to %X\n", line, data)
 		output = append(output, data...)
 	}
+
 	return output
 }
 
@@ -141,8 +146,6 @@ func ParseCommand(args []string, line int) ([]uint16, []PointerReference) {
 	cmd := []uint16{cmdMap}
 	flag := vm.FLAG_NONE
 	pointers := make([]PointerReference, 0)
-
-	fmt.Println("parsing ", args, cmdMap)
 
 	for index, arg := range args[1:] {
 		var argType string
@@ -161,19 +164,15 @@ func ParseCommand(args []string, line int) ([]uint16, []PointerReference) {
 					argType = "register"
 				}
 				argValue = v
+			} else if v, ok := SystemPointers[arg]; ok {
+				argValue = v
 			} else {
-				if v, ok := SystemPointers[arg]; ok {
-					argValue = v
-				} else {
-					pointers = append(pointers, PointerReference{arg, line, index})
-					argType = "intermediate"
-				}
+				pointers = append(pointers, PointerReference{arg, line, index})
+				argType = "intermediate"
 			}
 		}
-		fmt.Println(index, arg, argValue, argType)
 
 		cmd = append(cmd, argValue)
-		fmt.Println(cmd)
 
 		switch flag {
 		case vm.FLAG_NONE:
