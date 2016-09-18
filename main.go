@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	pkg = pkginfo.PackageInfo{
+	AssembleFlag = flag.Bool("asm", true, "Assemble source")
+	pkg          = pkginfo.PackageInfo{
 		Name: "gvm",
 		Version: pkginfo.PackageVersion{
 			Major:      0,
@@ -37,6 +38,19 @@ func main() {
 		fmt.Errorf("%v\n", err)
 		return
 	}
+	if *AssembleFlag {
+		bytecode = Assemble(string(bytecode))
+		fmt.Print("Assembled Bytecode")
+		for i, b := range bytecode {
+			if i%6 == 0 {
+				fmt.Println()
+			}
+			fmt.Printf("%-3.2X ", b)
+		}
+		fmt.Println()
+	}
+
 	machine := NewMachine()
 	machine.Boot(bytecode)
+	fmt.Println(machine)
 }

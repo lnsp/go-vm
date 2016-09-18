@@ -6,6 +6,10 @@ import (
 )
 
 var (
+	ByteOrder = binary.BigEndian
+)
+
+var (
 	BaseColors = []uint16{
 		0x000, // Black
 		0xFFF, // White
@@ -42,7 +46,7 @@ type Machine struct {
 
 func NewMachine() *Machine {
 	return &Machine{
-		ByteOrder: binary.BigEndian,
+		ByteOrder: ByteOrder,
 	}
 }
 
@@ -116,19 +120,34 @@ func (machine *Machine) handle() {
 	case CMD_SHR:
 		machine.PerformLogic(func(a, b uint16) uint16 { return a >> b })
 	case CMD_MOV:
+		var value, target uint16
 		switch machine.Flag {
-		case FLAG_RR, FLAG_RA, FLAG_AA, FLAG_AR:
+		case FLAG_RA:
 			value = machine.load(machine.Args[0])
-		case FLAG_IA, FLAG_IR:
+			target = machine.load(machine.Args[1])
+		case FLAG_RR:
+			value = machine.load(machine.Args[0])
+			target = machine.Args[1]
+		case FLAG_AA:
+			value = machine.load(machine.load(machine.Args[0]))
+			target = machine.load(machine.Args[1])
+		case FLAG_AR:
+			value = machine.load(machine.load(machine.Args[0]))
+			target = machine.Args[1]
+		case FLAG_IA:
 			value = machine.Args[0]
+			target = machine.load(machine.Args[1])
+		case FLAG_IR:
+			value = machine.Args[0]
+			target = machine.Args[1]
 		}
-		machine.store(machine.Args[1], value)
+		machine.store(target, value)
 	case CMD_PUSH:
 		switch machine.Flag {
 		case FLAG_I:
 			value = machine.Args[0]
 		case FLAG_R:
-			value = machine.Args[1]
+			value = machine.load(machine.Args[0])
 		}
 		machine.push(value)
 	case CMD_POP:
@@ -160,7 +179,7 @@ func (machine *Machine) handle() {
 			value = machine.load(machine.Args[0])
 		}
 		machine.store(CODE_POINTER, value)
-	case CMD_CLL:
+	case CMD_CALL:
 		switch machine.Flag {
 		case FLAG_I:
 			value = machine.Args[0]
@@ -214,6 +233,7 @@ func (machine *Machine) initialize() {
 
 	// Load base values
 	machine.store(CODE_POINTER, CODE_BASE)
+	machine.store(STACK_POINTER, STACK_BASE)
 	machine.store(CODE_BASE, CMD_HLT)
 	machine.store(INTERRUPT, MAX_MEMORY-1)
 

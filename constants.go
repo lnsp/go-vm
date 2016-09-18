@@ -30,9 +30,12 @@ const (
 	FLAG_AA   uint16 = 0x0400
 	FLAG_AR   uint16 = 0x0500
 	FLAG_IA   uint16 = 0x0600
+	FLAG_II   uint16 = 0x0B00
+	FLAG_AI   uint16 = 0x0C00
 	FLAG_IR   uint16 = 0x0700
 	FLAG_I    uint16 = 0x0800
 	FLAG_R    uint16 = 0x0900
+	FLAG_A    uint16 = 0x0A00
 	FLAG_NONE uint16 = 0x0000
 
 	CMD_MASK uint16 = 0x00FF
@@ -57,7 +60,7 @@ const (
 	CMD_SME  uint16 = 0x18
 	CMD_JIF  uint16 = 0x12 // R - I
 	CMD_JMP  uint16 = 0x13 // R - I
-	CMD_CLL  uint16 = 0x14
+	CMD_CALL uint16 = 0x14
 	CMD_RET  uint16 = 0x15
 	CMD_HLT  uint16 = 0x16
 
