@@ -69,14 +69,14 @@ func (machine *Machine) PerformReturn() error {
 	}
 	return nil
 }
-func (machine *Machine) PerformSimpleArithmetic(base func(uint16) uint16, carry func(int) int) error {
+func (machine *Machine) PerformSimpleArithmetic(carry func(int) int) error {
 	var value1, result, zeroFlag, carryFlag uint16
 	value1, err := machine.Load(machine.Args[0])
 	if err != nil {
 		return err
 	}
-	result = base(value1)
 	carryResult := carry(int(value1))
+	result = uint16(carryResult)
 	zeroFlag = 0
 	if result == 0 {
 		zeroFlag = 1
@@ -160,7 +160,7 @@ func (machine *Machine) PerformLogic(base func(uint16, uint16) uint16) error {
 	return nil
 }
 
-func (machine *Machine) PerformArithmetic(base func(uint16, uint16) uint16, carry func(int, int) int) error {
+func (machine *Machine) PerformArithmetic(carry func(int, int) int) error {
 	var value1, value2, result, zeroFlag, carryFlag uint16
 	value1, err := machine.Load(machine.Args[0])
 	if err != nil {
@@ -172,8 +172,8 @@ func (machine *Machine) PerformArithmetic(base func(uint16, uint16) uint16, carr
 			return err
 		}
 	}
-	result = base(value1, value2)
 	carryResult := carry(int(value1), int(value2))
+	result = uint16(carryResult)
 	zeroFlag = 0
 	if result == 0 {
 		zeroFlag = 1

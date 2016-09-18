@@ -154,17 +154,17 @@ func (machine *Machine) fetchWord() (uint16, error) {
 func (machine *Machine) handle() error {
 	switch machine.Command {
 	case CMD_ADD:
-		machine.PerformArithmetic(func(a, b uint16) uint16 { return a + b }, func(a, b int) int { return a + b })
+		machine.PerformArithmetic(func(a, b int) int { return a + b })
 	case CMD_SUB:
-		machine.PerformArithmetic(func(a, b uint16) uint16 { return a - b }, func(a, b int) int { return a - b })
+		machine.PerformArithmetic(func(a, b int) int { return a - b })
 	case CMD_MUL:
-		machine.PerformArithmetic(func(a, b uint16) uint16 { return a * b }, func(a, b int) int { return a * b })
+		machine.PerformArithmetic(func(a, b int) int { return a * b })
 	case CMD_DIV:
-		machine.PerformArithmetic(func(a, b uint16) uint16 { return a / b }, func(a, b int) int { return a / b })
+		machine.PerformArithmetic(func(a, b int) int { return a / b })
 	case CMD_INC:
-		machine.PerformSimpleArithmetic(func(a uint16) uint16 { return a + 1 }, func(a int) int { return a + 1 })
+		machine.PerformSimpleArithmetic(func(a int) int { return a + 1 })
 	case CMD_DEC:
-		machine.PerformSimpleArithmetic(func(a uint16) uint16 { return a - 1 }, func(a int) int { return a - 1 })
+		machine.PerformSimpleArithmetic(func(a int) int { return a - 1 })
 	case CMD_AND:
 		machine.PerformLogic(func(a, b uint16) uint16 { return a & b })
 	case CMD_OR:
