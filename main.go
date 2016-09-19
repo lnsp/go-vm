@@ -14,7 +14,7 @@ import (
 var (
 	AssembleFlag = flag.Bool("asm", true, "Assemble source")
 	pkg          = pkginfo.PackageInfo{
-		Name: "gvm",
+		Name: "govm",
 		Version: pkginfo.PackageVersion{
 			Major:      0,
 			Minor:      1,
