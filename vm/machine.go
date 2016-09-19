@@ -152,57 +152,58 @@ func (machine *Machine) fetchWord() (uint16, error) {
 }
 
 func (machine *Machine) handle() error {
+	var err error
 	switch machine.Command {
 	case CMD_ADD:
-		machine.PerformArithmetic(func(a, b int) int { return a + b })
+		err = machine.PerformArithmetic(func(a, b int) int { return a + b })
 	case CMD_SUB:
-		machine.PerformArithmetic(func(a, b int) int { return a - b })
+		err = machine.PerformArithmetic(func(a, b int) int { return a - b })
 	case CMD_MUL:
-		machine.PerformArithmetic(func(a, b int) int { return a * b })
+		err = machine.PerformArithmetic(func(a, b int) int { return a * b })
 	case CMD_DIV:
-		machine.PerformArithmetic(func(a, b int) int { return a / b })
+		err = machine.PerformArithmetic(func(a, b int) int { return a / b })
 	case CMD_INC:
-		machine.PerformSimpleArithmetic(func(a int) int { return a + 1 })
+		err = machine.PerformSimpleArithmetic(func(a int) int { return a + 1 })
 	case CMD_DEC:
-		machine.PerformSimpleArithmetic(func(a int) int { return a - 1 })
+		err = machine.PerformSimpleArithmetic(func(a int) int { return a - 1 })
 	case CMD_AND:
-		machine.PerformLogic(func(a, b uint16) uint16 { return a & b })
+		err = machine.PerformLogic(func(a, b uint16) uint16 { return a & b })
 	case CMD_OR:
-		machine.PerformLogic(func(a, b uint16) uint16 { return a | b })
+		err = machine.PerformLogic(func(a, b uint16) uint16 { return a | b })
 	case CMD_XOR:
-		machine.PerformLogic(func(a, b uint16) uint16 { return a ^ b })
+		err = machine.PerformLogic(func(a, b uint16) uint16 { return a ^ b })
 	case CMD_NOT:
-		machine.PerformSimpleLogic(func(a uint16) uint16 { return a &^ 0xFFFF })
+		err = machine.PerformSimpleLogic(func(a uint16) uint16 { return a &^ 0xFFFF })
 	case CMD_SHL:
-		machine.PerformLogic(func(a, b uint16) uint16 { return a << b })
+		err = machine.PerformLogic(func(a, b uint16) uint16 { return a << b })
 	case CMD_SHR:
-		machine.PerformLogic(func(a, b uint16) uint16 { return a >> b })
+		err = machine.PerformLogic(func(a, b uint16) uint16 { return a >> b })
 	case CMD_MOV:
-		machine.PerformMove()
+		err = machine.PerformMove()
 	case CMD_PUSH:
-		machine.PerformPush()
+		err = machine.PerformPush()
 	case CMD_POP:
-		machine.PerformPop()
+		err = machine.PerformPop()
 	case CMD_CMP:
-		machine.PerformLogic(func(a, b uint16) uint16 { return toUint16(a == b) })
+		err = machine.PerformLogic(func(a, b uint16) uint16 { return toUint16(a == b) })
 	case CMD_CNT:
-		machine.PerformLogic(func(a, b uint16) uint16 { return toUint16(a != b) })
+		err = machine.PerformLogic(func(a, b uint16) uint16 { return toUint16(a != b) })
 	case CMD_LGE:
-		machine.PerformLogic(func(a, b uint16) uint16 { return toUint16(a >= b) })
+		err = machine.PerformLogic(func(a, b uint16) uint16 { return toUint16(a >= b) })
 	case CMD_SME:
-		machine.PerformLogic(func(a, b uint16) uint16 { return toUint16(a <= b) })
+		err = machine.PerformLogic(func(a, b uint16) uint16 { return toUint16(a <= b) })
 	case CMD_JIF:
-		machine.PerformJump(false)
+		err = machine.PerformJump(false)
 	case CMD_JMP:
-		machine.PerformJump(true)
+		err = machine.PerformJump(true)
 	case CMD_CALL:
-		machine.PerformCall()
+		err = machine.PerformCall()
 	case CMD_RET:
-		machine.PerformReturn()
+		err = machine.PerformReturn()
 	case CMD_HLT:
 		machine.Halt()
 	}
-	return nil
+	return err
 }
 
 func (machine *Machine) parseState() error {
