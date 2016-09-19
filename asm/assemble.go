@@ -119,7 +119,7 @@ func Assemble(code string) []byte {
 
 	for _, p := range references {
 		if _, ok := definedPointers[p.Name]; !ok {
-			fmt.Errorf("ERROR: Missing pointer %s\n", p.Name)
+			fmt.Printf("ERROR: Missing pointer %s\n", p.Name)
 			return []byte{}
 		}
 		lineBuffer[p.Line][p.Arg+1] = definedPointers[p.Name]
@@ -144,7 +144,7 @@ func Assemble(code string) []byte {
 func ParseCommand(args []string, line int) ([]uint16, []PointerReference) {
 	cmdMap, ok := CommandMap[args[0]]
 	if !ok {
-		fmt.Errorf("ERROR: Unknown command %s\n", args[0])
+		fmt.Printf("ERROR: Unknown command %s\n", args[0])
 		return []uint16{}, []PointerReference{}
 	}
 	cmd := []uint16{cmdMap}
@@ -170,6 +170,7 @@ func ParseCommand(args []string, line int) ([]uint16, []PointerReference) {
 				argValue = v
 			} else if v, ok := SystemPointers[arg]; ok {
 				argValue = v
+				argType = "intermediate"
 			} else {
 				pointers = append(pointers, PointerReference{arg, line, index})
 				argType = "intermediate"
