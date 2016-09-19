@@ -1,16 +1,16 @@
 package vm
 
 func (machine *Machine) Halt() {
-	machine.KeepRunning = false
+	machine.keepRunning = false
 }
 func (machine *Machine) PerformPush() error {
 	var value uint16
 	var err error
-	switch machine.Flag {
+	switch machine.flag {
 	case FLAG_I:
-		value = machine.Args[0]
+		value = machine.args[0]
 	case FLAG_R:
-		value, err = machine.Load(machine.Args[0])
+		value, err = machine.Load(machine.args[0])
 		if err != nil {
 			return err
 		}
@@ -26,7 +26,7 @@ func (machine *Machine) PerformPop() error {
 	if err != nil {
 		return err
 	}
-	err = machine.Store(machine.Args[0], value)
+	err = machine.Store(machine.args[0], value)
 	if err != nil {
 		return err
 	}
@@ -35,11 +35,11 @@ func (machine *Machine) PerformPop() error {
 func (machine *Machine) PerformCall() error {
 	var value uint16
 	var err error
-	switch machine.Flag {
+	switch machine.flag {
 	case FLAG_I:
-		value = machine.Args[0]
+		value = machine.args[0]
 	case FLAG_R:
-		value, err = machine.Load(machine.Args[0])
+		value, err = machine.Load(machine.args[0])
 		if err != nil {
 			return err
 		}
@@ -71,7 +71,7 @@ func (machine *Machine) PerformReturn() error {
 }
 func (machine *Machine) PerformSimpleArithmetic(carry func(int) int) error {
 	var value1, result, zeroFlag, carryFlag uint16
-	value1, err := machine.Load(machine.Args[0])
+	value1, err := machine.Load(machine.args[0])
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func (machine *Machine) PerformSimpleArithmetic(carry func(int) int) error {
 	if err != nil {
 		return err
 	}
-	err = machine.Store(machine.Args[0], result)
+	err = machine.Store(machine.args[0], result)
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func (machine *Machine) PerformSimpleArithmetic(carry func(int) int) error {
 
 func (machine *Machine) PerformSimpleLogic(base func(uint16) uint16) error {
 	var value1, zeroFlag, result uint16
-	value1, err := machine.Load(machine.Args[0])
+	value1, err := machine.Load(machine.args[0])
 	if err != nil {
 		return err
 	}
@@ -121,7 +121,7 @@ func (machine *Machine) PerformSimpleLogic(base func(uint16) uint16) error {
 	if err != nil {
 		return err
 	}
-	err = machine.Store(machine.Args[0], result)
+	err = machine.Store(machine.args[0], result)
 	if err != nil {
 		return err
 	}
@@ -130,12 +130,12 @@ func (machine *Machine) PerformSimpleLogic(base func(uint16) uint16) error {
 
 func (machine *Machine) PerformLogic(base func(uint16, uint16) uint16) error {
 	var value1, value2, zeroFlag, result uint16
-	value1, err := machine.Load(machine.Args[0])
+	value1, err := machine.Load(machine.args[0])
 	if err != nil {
 		return err
 	}
-	if value2 = machine.Args[1]; machine.Flag == FLAG_RR {
-		value2, err = machine.Load(machine.Args[1])
+	if value2 = machine.args[1]; machine.flag == FLAG_RR {
+		value2, err = machine.Load(machine.args[1])
 		if err != nil {
 			return err
 		}
@@ -153,7 +153,7 @@ func (machine *Machine) PerformLogic(base func(uint16, uint16) uint16) error {
 	if err != nil {
 		return err
 	}
-	err = machine.Store(machine.Args[0], result)
+	err = machine.Store(machine.args[0], result)
 	if err != nil {
 		return err
 	}
@@ -162,12 +162,12 @@ func (machine *Machine) PerformLogic(base func(uint16, uint16) uint16) error {
 
 func (machine *Machine) PerformArithmetic(carry func(int, int) int) error {
 	var value1, value2, result, zeroFlag, carryFlag uint16
-	value1, err := machine.Load(machine.Args[0])
+	value1, err := machine.Load(machine.args[0])
 	if err != nil {
 		return err
 	}
-	if value2 = machine.Args[1]; machine.Flag == FLAG_RR {
-		value2, err = machine.Load(machine.Args[1])
+	if value2 = machine.args[1]; machine.flag == FLAG_RR {
+		value2, err = machine.Load(machine.args[1])
 		if err != nil {
 			return err
 		}
@@ -190,7 +190,7 @@ func (machine *Machine) PerformArithmetic(carry func(int, int) int) error {
 	if err != nil {
 		return err
 	}
-	err = machine.Store(machine.Args[0], result)
+	err = machine.Store(machine.args[0], result)
 	if err != nil {
 		return err
 	}
@@ -199,11 +199,11 @@ func (machine *Machine) PerformArithmetic(carry func(int, int) int) error {
 func (machine *Machine) PerformJump(jumpAlways bool) error {
 	var value uint16
 	var err error
-	switch machine.Flag {
+	switch machine.flag {
 	case FLAG_I:
-		value = machine.Args[0]
+		value = machine.args[0]
 	case FLAG_R:
-		value, err = machine.Load(machine.Args[0])
+		value, err = machine.Load(machine.args[0])
 		if err != nil {
 			return err
 		}
@@ -223,27 +223,27 @@ func (machine *Machine) PerformJump(jumpAlways bool) error {
 func (machine *Machine) PerformMove() error {
 	var value, target uint16
 	var err error
-	switch machine.Flag {
+	switch machine.flag {
 	case FLAG_RA:
-		value, err = machine.Load(machine.Args[0])
+		value, err = machine.Load(machine.args[0])
 		if err != nil {
 			return err
 		}
-		target, err = machine.Load(machine.Args[1])
+		target, err = machine.Load(machine.args[1])
 		if err != nil {
 			return err
 		}
 	case FLAG_RR:
-		value, err = machine.Load(machine.Args[0])
+		value, err = machine.Load(machine.args[0])
 		if err != nil {
 			return err
 		}
-		target = machine.Args[1]
+		target = machine.args[1]
 		if err != nil {
 			return err
 		}
 	case FLAG_AA:
-		pointer, err := machine.Load(machine.Args[0])
+		pointer, err := machine.Load(machine.args[0])
 		if err != nil {
 			return err
 		}
@@ -251,12 +251,12 @@ func (machine *Machine) PerformMove() error {
 		if err != nil {
 			return err
 		}
-		target, err = machine.Load(machine.Args[1])
+		target, err = machine.Load(machine.args[1])
 		if err != nil {
 			return err
 		}
 	case FLAG_AR:
-		pointer, err := machine.Load(machine.Args[0])
+		pointer, err := machine.Load(machine.args[0])
 		if err != nil {
 			return err
 		}
@@ -264,16 +264,16 @@ func (machine *Machine) PerformMove() error {
 		if err != nil {
 			return err
 		}
-		target = machine.Args[1]
+		target = machine.args[1]
 	case FLAG_IA:
-		value = machine.Args[0]
-		target, err = machine.Load(machine.Args[1])
+		value = machine.args[0]
+		target, err = machine.Load(machine.args[1])
 		if err != nil {
 			return err
 		}
 	case FLAG_IR:
-		value = machine.Args[0]
-		target = machine.Args[1]
+		value = machine.args[0]
+		target = machine.args[1]
 	}
 	err = machine.Store(target, value)
 	if err != nil {

@@ -37,22 +37,22 @@ var (
 
 type Machine struct {
 	Memory
-	Next        uint16
-	Flag        uint16
-	Command     uint16
-	Args        [MAX_CMD_ARGS]uint16
-	KeepRunning bool
-	Debug       bool
+	next        uint16
+	flag        uint16
+	command     uint16
+	args        [MAX_CMD_ARGS]uint16
+	keepRunning bool
+	debug       bool
 }
 
 func New() *Machine {
 	return &Machine{
-		Memory: NewMemory(int(MAX_MEMORY) + 1),
+		Memory:  NewMemory(int(MAX_MEMORY) + 1),
 	}
 }
 
 func (machine *Machine) EnableDebug(debug bool) {
-	machine.Debug = debug
+	machine.debug = debug
 }
 
 func (machine *Machine) Boot(code []byte) error {
@@ -153,7 +153,7 @@ func (machine *Machine) fetchWord() (uint16, error) {
 
 func (machine *Machine) handle() error {
 	var err error
-	switch machine.Command {
+	switch machine.command {
 	case CMD_ADD:
 		err = machine.PerformArithmetic(func(a, b int) int { return a + b })
 	case CMD_SUB:
@@ -207,20 +207,20 @@ func (machine *Machine) handle() error {
 }
 
 func (machine *Machine) parseState() error {
-	machine.Flag = machine.Next & FLAG_MASK
-	machine.Command = machine.Next & CMD_MASK
+	machine.flag = machine.next & FLAG_MASK
+	machine.command = machine.next & CMD_MASK
 
 	var err error
-	maxFlags := FlagSize[machine.Flag]
+	maxFlags := FlagSize[machine.flag]
 	for i := 0; i < maxFlags; i++ {
-		machine.Args[i], err = machine.fetchWord()
+		machine.args[i], err = machine.fetchWord()
 		if err != nil {
 			return err
 		}
 	}
 
-	if machine.Debug {
-		fmt.Printf("%4.4X %X\n", machine.Next, machine.Args)
+	if machine.debug {
+		fmt.Printf("%4.4X %X\n", machine.next, machine.args)
 	}
 
 	return nil
@@ -228,7 +228,7 @@ func (machine *Machine) parseState() error {
 
 func (machine *Machine) iterate() error {
 	var err error
-	if machine.Debug {
+	if machine.debug {
 		pointer, err := machine.Load(CODE_POINTER)
 		if err != nil {
 			return err
@@ -236,7 +236,7 @@ func (machine *Machine) iterate() error {
 		fmt.Printf("%4.4X: ", pointer)
 	}
 
-	machine.Next, err = machine.fetchWord()
+	machine.next, err = machine.fetchWord()
 	if err != nil {
 		return err
 	}
@@ -249,7 +249,7 @@ func (machine *Machine) run() error {
 		return err
 	}
 
-	for machine.KeepRunning {
+	for machine.keepRunning {
 		machine.parseState()
 		err = machine.handle()
 		if err != nil {
@@ -308,7 +308,7 @@ func (machine *Machine) initialize() error {
 		pointer += 2
 	}
 
-	machine.KeepRunning = true
+	machine.keepRunning = true
 	return nil
 }
 
