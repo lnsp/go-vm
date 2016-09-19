@@ -43,11 +43,13 @@ type Machine struct {
 	args        [MAX_CMD_ARGS]uint16
 	keepRunning bool
 	debug       bool
+	display     Display
 }
 
 func New() *Machine {
 	return &Machine{
 		Memory:  NewMemory(int(MAX_MEMORY) + 1),
+		display: TextDisplay{},
 	}
 }
 
@@ -68,6 +70,15 @@ func (machine *Machine) Boot(code []byte) error {
 	if err != nil {
 		return err
 	}
+	err = machine.dispose()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (machine *Machine) dispose() error {
+	machine.display.Close()
 	return nil
 }
 
@@ -259,6 +270,7 @@ func (machine *Machine) run() error {
 		if err != nil {
 			return err
 		}
+		machine.display.Draw(80, 24, machine.Segment(OUT_CHARS, OUT_MODE))
 	}
 	return nil
 }
@@ -276,6 +288,7 @@ func (machine *Machine) program(code []byte) error {
 }
 
 func (machine *Machine) initialize() error {
+	machine.display.Init()
 	// Load base values
 	err := machine.Store(CODE_POINTER, CODE_BASE)
 	if err != nil {
