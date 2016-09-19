@@ -3,9 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
+
 	"github.com/lnsp/govm/asm"
 	"github.com/lnsp/govm/vm"
-	"io/ioutil"
 
 	"github.com/lnsp/pkginfo"
 )
@@ -45,6 +46,8 @@ func main() {
 	}
 
 	machine := vm.New()
-	machine.Boot(bytecode)
-	fmt.Println(machine)
+	err = machine.Boot(bytecode)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
