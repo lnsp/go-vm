@@ -35,6 +35,10 @@ var (
 	}
 )
 
+type asyncInterrupt struct {
+	Identifier, Reason uint16
+}
+
 type Machine struct {
 	Memory
 	next        uint16
@@ -44,6 +48,16 @@ type Machine struct {
 	keepRunning bool
 	debug       bool
 	display     Display
+	irQueue     chan asyncInterrupt
+}
+
+type machineError struct {
+	prefix string
+	source error
+}
+
+func (me machineError) Error() string {
+	return me.prefix + ": " + me.source.Error()
 }
 
 func New() *Machine {
@@ -82,62 +96,102 @@ func (machine *Machine) dispose() error {
 	return nil
 }
 
-func (machine *Machine) interrupt(code, reason uint16) error {
-	err := machine.Store(INTERRUPT, code)
-	if err != nil {
-		return err
+func (machine *Machine) Interrupt(code, reason uint16) {
+	machine.irQueue <- asyncInterrupt{code, reason}
+}
+
+func interruptError(sub error) error {
+	return &machineError{"interrupt", sub}
+}
+
+func (machine *Machine) updateInterrupts() error {
+	var code, reason uint16
+
+	// Fetch latest interrupt
+	select {
+	case ir, ok := <-machine.irQueue:
+		if !ok {
+			return interruptError(errors.New("queue closed"))
+		}
+		code = ir.Identifier
+		reason = ir.Reason
+	default:
+		return nil
 	}
+
+	// Store active code pointer on stack
+	current, err := machine.Load(CODE_POINTER)
+	if err != nil {
+		return interruptError(err)
+	}
+	err = machine.push(current)
+	if err != nil {
+		return interruptError(err)
+	}
+	// Store interrupt code in register
+	err = machine.Store(INTERRUPT, code)
+	if err != nil {
+		return interruptError(err)
+	}
+	// Load interrupt handler
 	pointer, err := machine.Load(reason)
 	if err != nil {
-		return err
+		return interruptError(err)
 	}
+	// Jump to interrupt handler
 	err = machine.Store(CODE_POINTER, pointer)
 	if err != nil {
-		return err
-	}
-	err = machine.run()
-	if err != nil {
-		return err
+		return interruptError(err)
 	}
 	return nil
+}
+
+func stackError(sub error) error {
+	return &machineError{"stack", sub}
 }
 
 func (machine *Machine) push(value uint16) error {
 	stackItem, err := machine.Load(STACK_POINTER)
 	if err != nil {
-		return err
+		return stackError(err)
 	}
 	if stackItem > STACK_MAX-WORD_SIZE {
-		machine.interrupt(IR_OVERFLOW_STACK, IR_OVERFLOW)
-		return errors.New("stack overflow")
+		machine.Interrupt(IR_OVERFLOW_STACK, IR_OVERFLOW)
+		return stackError(errors.New("memory overflow"))
 	}
 	nextItem := stackItem + WORD_SIZE
 	err = machine.Store(nextItem, value)
 	if err != nil {
-		return err
+		return stackError(err)
 	}
 	machine.Store(STACK_POINTER, nextItem)
 	if err != nil {
-		return err
+		return stackError(err)
 	}
 	return nil
 }
 
 func (machine *Machine) pop() (uint16, error) {
+	var value uint16
+
 	pointer, err := machine.Load(STACK_POINTER)
 	if err != nil {
-		return 0, err
+		return value, stackError(err)
 	}
-	value, err := machine.Load(pointer)
+	value, err = machine.Load(pointer)
 	if err != nil {
-		return 0, err
+		return value, stackError(err)
 	}
 	err = machine.Store(pointer, 0)
 	if err != nil {
-		return 0, err
+		return value, stackError(err)
 	}
-	if pointer > STACK_BASE {
-		machine.Store(STACK_POINTER, pointer-WORD_SIZE)
+	if pointer <= STACK_BASE {
+		return value, nil
+	}
+	err = machine.Store(STACK_POINTER, pointer-WORD_SIZE)
+	if err != nil {
+		return value, stackError(err)
 	}
 	return value, nil
 }
@@ -148,7 +202,7 @@ func (machine *Machine) fetchWord() (uint16, error) {
 		return 0, err
 	}
 	if pointer > MAX_MEMORY-WORD_SIZE {
-		machine.interrupt(IR_OVERFLOW_CODE, IR_OVERFLOW)
+		machine.Interrupt(IR_OVERFLOW_CODE, IR_OVERFLOW)
 		return 0, errors.New("out of memory")
 	}
 	err = machine.Store(CODE_POINTER, pointer+WORD_SIZE)
@@ -237,38 +291,49 @@ func (machine *Machine) parseState() error {
 	return nil
 }
 
+func iterationError(sub error) error {
+	return &machineError{"iterate", sub}
+}
 func (machine *Machine) iterate() error {
 	var err error
 	if machine.debug {
 		pointer, err := machine.Load(CODE_POINTER)
 		if err != nil {
-			return err
+			return iterationError(err)
 		}
 		fmt.Printf("%4.4X: ", pointer)
 	}
 
 	machine.next, err = machine.fetchWord()
 	if err != nil {
-		return err
+		return iterationError(err)
 	}
 	return nil
+}
+
+func runtimeError(sub error) error {
+	return &machineError{"runtime", sub}
 }
 
 func (machine *Machine) run() error {
 	err := machine.iterate()
 	if err != nil {
-		return err
+		return runtimeError(err)
 	}
 
 	for machine.keepRunning {
 		machine.parseState()
 		err = machine.handle()
 		if err != nil {
-			return err
+			return runtimeError(err)
+		}
+		err = machine.updateInterrupts()
+		if err != nil {
+			return runtimeError(err)
 		}
 		err = machine.iterate()
 		if err != nil {
-			return err
+			return runtimeError(err)
 		}
 		machine.display.Draw(80, 24, machine.Segment(OUT_CHARS, OUT_MODE))
 	}
