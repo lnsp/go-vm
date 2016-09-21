@@ -1,4 +1,4 @@
-Improved Go port of [SVM](https://github.com/lnsp/svm)
+GoVM [![Build Status](https://travis-ci.org/lnsp/govm.svg?branch=master)](https://travis-ci.org/lnsp/govm)
 =========
 
 ## Specification
