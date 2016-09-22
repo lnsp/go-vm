@@ -49,8 +49,8 @@ The memory layout of this region differs from mode to mode. The graphics mode is
 
 The only available mode at this time is the **terminal mode** (80x24).
 In this mode the region (`1000` - `1EFF`) stores character and color data.
-The first byte maps the color (first half foreground, second half background).
-The second byte maps the character. The region (`1F00` - `1FFD`) stores 16-bit colors.
+The first byte maps the color (first half foreground, second half background). You can choose between 8 different colors.
+The second byte must be a UTF-8 encoded character.
 
 ## License
 
