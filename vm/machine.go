@@ -39,6 +39,7 @@ type asyncInterrupt struct {
 	Identifier, Reason uint16
 }
 
+// Machine is a sixteen bit virtual machine.
 type Machine struct {
 	Memory
 	next        uint16
@@ -51,6 +52,7 @@ type Machine struct {
 	irQueue     chan asyncInterrupt
 }
 
+// machineError is a generic machine error.
 type machineError struct {
 	prefix string
 	source error
@@ -60,6 +62,7 @@ func (me machineError) Error() string {
 	return me.prefix + ": " + me.source.Error()
 }
 
+// New instantiates a new virtual machine.
 func New() *Machine {
 	return &Machine{
 		Memory:  NewMemory(int(MAX_MEMORY) + 1),
@@ -67,10 +70,12 @@ func New() *Machine {
 	}
 }
 
+// EnableDebug prints verbose debugging logs.
 func (machine *Machine) EnableDebug(debug bool) {
 	machine.debug = debug
 }
 
+// Boot copies the bytecode into the program segment and starts the virtual machine.
 func (machine *Machine) Boot(code []byte) error {
 	err := machine.initialize()
 	if err != nil {
@@ -91,19 +96,23 @@ func (machine *Machine) Boot(code []byte) error {
 	return nil
 }
 
+// dispose dispatches all resources from the virtual machine.
 func (machine *Machine) dispose() error {
 	machine.display.Close()
 	return nil
 }
 
+// Interrupt sends a interrupt event to the virtual machine.
 func (machine *Machine) Interrupt(code, reason uint16) {
 	machine.irQueue <- asyncInterrupt{code, reason}
 }
 
+// interruptError creates a generic interrupt error.
 func interruptError(sub error) error {
 	return &machineError{"interrupt", sub}
 }
 
+// updateInterrupts handles the latest interrupt.
 func (machine *Machine) updateInterrupts() error {
 	var code, reason uint16
 
@@ -146,10 +155,12 @@ func (machine *Machine) updateInterrupts() error {
 	return nil
 }
 
+// stackError creates a generic stack error.
 func stackError(sub error) error {
 	return &machineError{"stack", sub}
 }
 
+// push puts a value onto the stack.
 func (machine *Machine) push(value uint16) error {
 	stackItem, err := machine.Load(STACK_POINTER)
 	if err != nil {
@@ -171,6 +182,7 @@ func (machine *Machine) push(value uint16) error {
 	return nil
 }
 
+// pop removes a value from the stack.
 func (machine *Machine) pop() (uint16, error) {
 	var value uint16
 
@@ -196,6 +208,7 @@ func (machine *Machine) pop() (uint16, error) {
 	return value, nil
 }
 
+// fetchWord handles the next command word.
 func (machine *Machine) fetchWord() (uint16, error) {
 	pointer, err := machine.Load(CODE_POINTER)
 	if err != nil {
@@ -216,6 +229,7 @@ func (machine *Machine) fetchWord() (uint16, error) {
 	return word, nil
 }
 
+// handle executes the current command.
 func (machine *Machine) handle() error {
 	var err error
 	switch machine.command {
@@ -271,6 +285,7 @@ func (machine *Machine) handle() error {
 	return err
 }
 
+// parseState fetches command arguments from memory.
 func (machine *Machine) parseState() error {
 	machine.flag = machine.next & FLAG_MASK
 	machine.command = machine.next & CMD_MASK
@@ -291,9 +306,12 @@ func (machine *Machine) parseState() error {
 	return nil
 }
 
+// iterationError creates a general iterate error.
 func iterationError(sub error) error {
 	return &machineError{"iterate", sub}
 }
+
+// iterate increases the code pointer and fetches the next command.
 func (machine *Machine) iterate() error {
 	var err error
 	if machine.debug {
@@ -311,10 +329,12 @@ func (machine *Machine) iterate() error {
 	return nil
 }
 
+// runtimeError creates a generic runtime error.
 func runtimeError(sub error) error {
 	return &machineError{"runtime", sub}
 }
 
+// run executes the current program code.
 func (machine *Machine) run() error {
 	err := machine.iterate()
 	if err != nil {
@@ -340,6 +360,7 @@ func (machine *Machine) run() error {
 	return nil
 }
 
+// program loads the bytecode into command-memory.
 func (machine *Machine) program(code []byte) error {
 	size := len(code)
 
@@ -352,6 +373,7 @@ func (machine *Machine) program(code []byte) error {
 	return nil
 }
 
+// initialize sets the virtual machine to startup defaults.
 func (machine *Machine) initialize() error {
 	machine.display.Init()
 	// Load base values
@@ -390,10 +412,12 @@ func (machine *Machine) initialize() error {
 	return nil
 }
 
+// String visualizes the register segment of the virtual machine.
 func (machine Machine) String() string {
 	return machine.dumpSegment(0)
 }
 
+// dumpSegment creates a hex dump of a memory segment.
 func (machine *Machine) dumpSegment(seg int) string {
 	start := uint16(seg * 256)
 	dump := fmt.Sprintf("SEGMENT %4.4X - %4.4X\n-------------------", start, start+0xFF)
