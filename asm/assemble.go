@@ -9,7 +9,36 @@ import (
 	"unicode/utf16"
 )
 
+const (
+	ARG_NONE = iota
+	ARG_REGISTER
+	ARG_ADDRESS
+	ARG_IMMEDIATE
+)
+
 var (
+	ArgMap = map[uint16]map[int]uint16{
+		vm.FLAG_NONE: map[int]uint16{
+			ARG_REGISTER:  vm.FLAG_R,
+			ARG_IMMEDIATE: vm.FLAG_I,
+			ARG_ADDRESS:   vm.FLAG_A,
+		},
+		vm.FLAG_I: map[int]uint16{
+			ARG_REGISTER:  vm.FLAG_IR,
+			ARG_IMMEDIATE: vm.FLAG_II,
+			ARG_ADDRESS:   vm.FLAG_IA,
+		},
+		vm.FLAG_R: map[int]uint16{
+			ARG_REGISTER:  vm.FLAG_RR,
+			ARG_IMMEDIATE: vm.FLAG_RI,
+			ARG_ADDRESS:   vm.FLAG_RA,
+		},
+		vm.FLAG_A: map[int]uint16{
+			ARG_REGISTER:  vm.FLAG_AR,
+			ARG_IMMEDIATE: vm.FLAG_AI,
+			ARG_ADDRESS:   vm.FLAG_AA,
+		},
+	}
 	CommandMap = map[string]uint16{
 		"ADD":  vm.CMD_ADD,
 		"SUB":  vm.CMD_SUB,
@@ -62,11 +91,13 @@ var (
 	NumberPattern, _  = regexp.Compile("((0x[0-9a-fA-F]+)|(0[0-7]+)|([0-9]+))")
 )
 
+// PointerReference represents a assembler reference to a point in memory.
 type PointerReference struct {
 	Name      string
 	Line, Arg int
 }
 
+// Assemble generates bytecode from GOVM ASM.
 func Assemble(code string) []byte {
 	var references []PointerReference
 	var lineBuffer [][]uint16
@@ -141,6 +172,7 @@ func Assemble(code string) []byte {
 	return output
 }
 
+// ParseCommand parses a specific command and returns a word representation and a slice of pointers.
 func ParseCommand(args []string, line int) ([]uint16, []PointerReference) {
 	cmdMap, ok := CommandMap[args[0]]
 	if !ok {
@@ -152,82 +184,46 @@ func ParseCommand(args []string, line int) ([]uint16, []PointerReference) {
 	pointers := make([]PointerReference, 0)
 
 	for index, arg := range args[1:] {
-		var argType string
+		argType := ARG_NONE
 		if strings.HasPrefix(arg, "[") {
 			arg = strings.Trim(arg, "[]")
-			argType = "address"
+			argType = ARG_ADDRESS
 		}
 
 		var argValue uint16
 		if NumberPattern.MatchString(arg) {
 			argValue = ParseNumber(arg)
-			argType = "intermediate"
+			argType = ARG_IMMEDIATE
 		} else if PointerPattern.MatchString(arg) {
 			if v, ok := Registers[arg]; ok {
-				if argType == "" {
-					argType = "register"
+				if argType == ARG_NONE {
+					argType = ARG_REGISTER
 				}
 				argValue = v
 			} else if v, ok := SystemPointers[arg]; ok {
 				argValue = v
-				argType = "intermediate"
+				argType = ARG_IMMEDIATE
 			} else {
 				pointers = append(pointers, PointerReference{arg, line, index})
-				argType = "intermediate"
+				argType = ARG_IMMEDIATE
 			}
 		}
 
 		cmd = append(cmd, argValue)
-
-		switch flag {
-		case vm.FLAG_NONE:
-			switch argType {
-			case "intermediate":
-				flag = vm.FLAG_I
-			case "register":
-				flag = vm.FLAG_R
-			case "address":
-				flag = vm.FLAG_A
-			}
-		case vm.FLAG_I:
-			switch argType {
-			case "intermediate":
-				flag = vm.FLAG_II
-			case "register":
-				flag = vm.FLAG_IR
-			case "address":
-				flag = vm.FLAG_IA
-			}
-		case vm.FLAG_R:
-			switch argType {
-			case "intermediate":
-				flag = vm.FLAG_RI
-			case "register":
-				flag = vm.FLAG_RR
-			case "address":
-				flag = vm.FLAG_RA
-			}
-		case vm.FLAG_A:
-			switch argType {
-			case "intermediate":
-				flag = vm.FLAG_AI
-			case "register":
-				flag = vm.FLAG_AR
-			case "address":
-				flag = vm.FLAG_AA
-			}
-		}
+		flag = ArgMap[flag][argType]
 	}
 
 	cmd[0] = cmd[0] | flag
 	return cmd, pointers
 }
 
+// ParseString converts a string into a utf-16 encoded slice of words.
 func ParseString(str string) []uint16 {
 	str = strings.Trim(str, "\"")
 	return utf16.Encode([]rune(str))
 }
 
+// ParseNumber converts a hex-, octal- or decimal number into a word.
 func ParseNumber(str string) uint16 {
 	var result uint16
 	if strings.HasPrefix(str, "0x") {
@@ -245,7 +241,7 @@ func ParseNumber(str string) uint16 {
 	return result
 }
 
-// Remove comments, trim lines etc.
+// CleanCode remove comments, trim lines etc.
 func CleanCode(code string) []string {
 	lines := strings.Split(code, "\n")
 	for index, line := range lines {
