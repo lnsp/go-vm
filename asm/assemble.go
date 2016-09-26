@@ -1,3 +1,4 @@
+// Package asm provides assembly generators for the govm.
 package asm
 
 import (
@@ -10,14 +11,18 @@ import (
 )
 
 const (
+	// No argument given
 	ARG_NONE = iota
+	// Register argument
 	ARG_REGISTER
+	// Address argument
 	ARG_ADDRESS
+	// Immediate argument
 	ARG_IMMEDIATE
 )
 
 var (
-	ArgMap = map[uint16]map[int]uint16{
+	argMap = map[uint16]map[int]uint16{
 		vm.FLAG_NONE: map[int]uint16{
 			ARG_REGISTER:  vm.FLAG_R,
 			ARG_IMMEDIATE: vm.FLAG_I,
@@ -39,7 +44,7 @@ var (
 			ARG_ADDRESS:   vm.FLAG_AA,
 		},
 	}
-	CommandMap = map[string]uint16{
+	commandMap = map[string]uint16{
 		"ADD":  vm.CMD_ADD,
 		"SUB":  vm.CMD_SUB,
 		"MUL":  vm.CMD_MUL,
@@ -65,7 +70,7 @@ var (
 		"RET":  vm.CMD_RET,
 		"HLT":  vm.CMD_HLT,
 	}
-	Registers = map[string]uint16{
+	registerMap = map[string]uint16{
 		"AX":  vm.REGISTER_AX,
 		"BX":  vm.REGISTER_BX,
 		"CX":  vm.REGISTER_CX,
@@ -80,15 +85,15 @@ var (
 		"ZF":  vm.ZERO_FLAG,
 		"CF":  vm.CARRY_FLAG,
 	}
-	SystemPointers = map[string]uint16{
+	systemPointers = map[string]uint16{
 		"SM":  vm.STACK_MAX,
 		"OCH": vm.OUT_CHARS,
 		"OCL": vm.OUT_COLORS,
 		"CB":  vm.CODE_BASE,
 		"OMD": vm.OUT_MODE,
 	}
-	PointerPattern, _ = regexp.Compile("[a-zA-Z]+")
-	NumberPattern, _  = regexp.Compile("((0x[0-9a-fA-F]+)|(0[0-7]+)|([0-9]+))")
+	pointerRegex, _ = regexp.Compile("[a-zA-Z]+")
+	numberRegex, _  = regexp.Compile("((0x[0-9a-fA-F]+)|(0[0-7]+)|([0-9]+))")
 )
 
 // PointerReference represents a assembler reference to a point in memory.
@@ -174,7 +179,7 @@ func Assemble(code string) []byte {
 
 // ParseCommand parses a specific command and returns a word representation and a slice of pointers.
 func ParseCommand(args []string, line int) ([]uint16, []PointerReference) {
-	cmdMap, ok := CommandMap[args[0]]
+	cmdMap, ok := commandMap[args[0]]
 	if !ok {
 		fmt.Printf("ERROR: Unknown command %s\n", args[0])
 		return []uint16{}, []PointerReference{}
@@ -191,16 +196,16 @@ func ParseCommand(args []string, line int) ([]uint16, []PointerReference) {
 		}
 
 		var argValue uint16
-		if NumberPattern.MatchString(arg) {
+		if numberRegex.MatchString(arg) {
 			argValue = ParseNumber(arg)
 			argType = ARG_IMMEDIATE
-		} else if PointerPattern.MatchString(arg) {
-			if v, ok := Registers[arg]; ok {
+		} else if pointerRegex.MatchString(arg) {
+			if v, ok := registerMap[arg]; ok {
 				if argType == ARG_NONE {
 					argType = ARG_REGISTER
 				}
 				argValue = v
-			} else if v, ok := SystemPointers[arg]; ok {
+			} else if v, ok := systemPointers[arg]; ok {
 				argValue = v
 				argType = ARG_IMMEDIATE
 			} else {
@@ -210,7 +215,7 @@ func ParseCommand(args []string, line int) ([]uint16, []PointerReference) {
 		}
 
 		cmd = append(cmd, argValue)
-		flag = ArgMap[flag][argType]
+		flag = argMap[flag][argType]
 	}
 
 	cmd[0] = cmd[0] | flag
