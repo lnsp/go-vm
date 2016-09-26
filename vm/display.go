@@ -1,3 +1,4 @@
+// Package vm provides a virtual machine runtime environment.
 package vm
 
 import (
@@ -6,17 +7,23 @@ import (
 	termbox "github.com/nsf/termbox-go"
 )
 
+// Interrupt with a type and a value code.
 type Interrupt struct {
 	Type uint16
 	Code uint16
 }
 
+// Display is a drawable display.
 type Display interface {
+	// Draw the data on a display with a specific width and height.
 	Draw(width, height int, data []byte)
+	// Init the display driver.
 	Init() error
+	// Close and dispose the display.
 	Close()
 }
 
+// TermboxDisplay is a generic display based on go-termbox.
 type TermboxDisplay struct{}
 
 func (TermboxDisplay) Init() error {
@@ -36,6 +43,7 @@ func (TermboxDisplay) Close() {
 	termbox.Close()
 }
 
+// DemoDisplay renders a variety of colors.
 type DemoDisplay struct {
 	TermboxDisplay
 }
@@ -50,6 +58,7 @@ func (DemoDisplay) Draw(width, height int, data []byte) {
 	termbox.Flush()
 }
 
+// TextDisplay is a simple termbox console display.
 type TextDisplay struct {
 	TermboxDisplay
 }
