@@ -3,7 +3,7 @@ package asm
 
 import (
 	"fmt"
-	"github.com/lnsp/govm/vm"
+	"github.com/lnsp/go-vm/vm"
 	"regexp"
 	"strconv"
 	"strings"

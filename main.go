@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/lnsp/govm/asm"
-	"github.com/lnsp/govm/vm"
+	"github.com/lnsp/go-vm/asm"
+	"github.com/lnsp/go-vm/vm"
 
 	"github.com/lnsp/pkginfo"
 )
