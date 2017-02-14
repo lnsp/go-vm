@@ -1,4 +1,4 @@
-GoVM [![Build Status](https://travis-ci.org/lnsp/govm.svg?branch=master)](https://travis-ci.org/lnsp/govm)
+GoVM [![Build Status](https://travis-ci.org/lnsp/go-vm.svg?branch=master)](https://travis-ci.org/lnsp/go-vm)
 =========
 
 ## Specification
